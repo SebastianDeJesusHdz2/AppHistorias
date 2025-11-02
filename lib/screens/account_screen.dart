@@ -13,7 +13,7 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   final _descCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController(); // NUEVO
+  final _nameCtrl = TextEditingController();
   bool _busy = false;
 
   @override
@@ -21,13 +21,13 @@ class _AccountScreenState extends State<AccountScreen> {
     super.initState();
     final acc = context.read<AccountService>();
     _descCtrl.text = acc.authorDescription;
-    _nameCtrl.text = acc.customUserName; // NUEVO
+    _nameCtrl.text = acc.customUserName;
   }
 
   @override
   void dispose() {
     _descCtrl.dispose();
-    _nameCtrl.dispose(); // NUEVO
+    _nameCtrl.dispose();
     super.dispose();
   }
 
@@ -54,7 +54,7 @@ class _AccountScreenState extends State<AccountScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Datos de perfil borrados.')),
       );
-      setState(() {}); // refresca avatar/nombre
+      setState(() {});
     }
   }
 
@@ -99,7 +99,6 @@ class _AccountScreenState extends State<AccountScreen> {
               Center(child: Text(acc.email!, style: theme.textTheme.bodySmall)),
 
             const SizedBox(height: 20),
-            // NUEVO: nombre de usuario editable (prioridad sobre Google)
             TextField(
               controller: _nameCtrl,
               decoration: const InputDecoration(
@@ -110,7 +109,6 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
               onChanged: acc.setCustomUserName,
             ),
-
             const SizedBox(height: 12),
             TextField(
               controller: _descCtrl,
@@ -122,7 +120,6 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
               onChanged: acc.setAuthorDescription,
             ),
-
             const SizedBox(height: 12),
             Row(
               children: [
@@ -130,8 +127,27 @@ class _AccountScreenState extends State<AccountScreen> {
                   icon: const Icon(Icons.login),
                   label: Text(acc.account == null ? 'Conectar Google' : 'Cambiar cuenta'),
                   onPressed: () async {
-                    await acc.signInWithGoogle();
-                    if (mounted) setState(() {});
+                    setState(() => _busy = true);
+                    try {
+                      await acc.signInWithGoogle();
+                      if (!mounted) return;
+                      if (acc.account != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Conectado: ${acc.displayName}')),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Inicio cancelado o sin cambios.')),
+                        );
+                      }
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error de Google Sign-In: $e')),
+                      );
+                    } finally {
+                      if (mounted) setState(() => _busy = false);
+                    }
                   },
                 ),
                 const SizedBox(width: 12),
@@ -145,7 +161,6 @@ class _AccountScreenState extends State<AccountScreen> {
                     },
                   ),
                 const SizedBox(width: 12),
-                // NUEVO: botón borrar datos de perfil locales
                 OutlinedButton.icon(
                   icon: const Icon(Icons.delete_forever, color: Colors.red),
                   label: const Text('Borrar datos de perfil'),
@@ -153,7 +168,6 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
             Wrap(
               spacing: 12,

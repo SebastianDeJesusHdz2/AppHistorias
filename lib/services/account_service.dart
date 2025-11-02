@@ -1,3 +1,4 @@
+// lib/services/account_service.dart (SIN initialize)
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
@@ -12,29 +13,34 @@ import 'package:http/http.dart' as http;
 import 'package:apphistorias/services/local_storage_service.dart';
 
 class AccountService with ChangeNotifier {
+  // Reemplaza por tu Client ID WEB de OAuth 2.0 en Google Cloud
+  static const String _webServerClientId = 'TU_WEB_CLIENT_ID.apps.googleusercontent.com';
+
   // Perfil local
   String authorDescription = '';
   String? photoPath;
-  String customUserName = ''; // NUEVO: nombre de usuario editable
+  String customUserName = '';
   Uint8List? get photoBytes =>
       (photoPath != null && !kIsWeb && File(photoPath!).existsSync())
           ? File(photoPath!).readAsBytesSync()
           : null;
 
-  // Google Sign-In
-  final GoogleSignIn _gsi = GoogleSignIn(
-    scopes: <String>[
+  // Google Sign-In: pasa serverClientId EN EL CONSTRUCTOR (soporta 6.x y 7.x)
+  late final GoogleSignIn _gsi = GoogleSignIn(
+    serverClientId: _webServerClientId, // clave: aquí, no con initialize()
+    scopes: const [
       'https://www.googleapis.com/auth/drive.file',
       'email',
       'profile',
     ],
+    // hostedDomain: null, // opcional si quisieras restringir dominios
   );
+
   GoogleSignInAccount? _account;
   GoogleSignInAccount? get account => _account;
   String? get googleDisplayName => _account?.displayName;
   String? get email => _account?.email;
 
-  // Nombre a mostrar: prioridad al personalizado, luego Google, luego “Sin sesión”
   String get displayName {
     if (customUserName.trim().isNotEmpty) return customUserName.trim();
     if ((googleDisplayName ?? '').trim().isNotEmpty) return googleDisplayName!.trim();
@@ -45,7 +51,7 @@ class AccountService with ChangeNotifier {
   static const _profileBox = 'profile';
   static const _descKey = 'authorDescription';
   static const _photoKey = 'photoPath';
-  static const _nameKey = 'customUserName'; // NUEVO
+  static const _nameKey = 'customUserName';
   Box? _box;
 
   Future<void> init() async {
@@ -89,17 +95,37 @@ class AccountService with ChangeNotifier {
   }
 
   Future<void> signInWithGoogle() async {
-    _account = await _gsi.signIn();
+    // Intenta silent para reusar sesión si existe
+    try {
+      await _gsi.signInSilently();
+    } catch (_) {}
+
+    // Interactivo: el usuario puede elegir cualquier cuenta
+    GoogleSignInAccount? acc;
+    try {
+      acc = await _gsi.signIn();
+    } catch (_) {
+      acc = null;
+    }
+    if (acc == null) return; // cancelado
+
+    // Fuerza obtención de headers (token) para confirmar sesión válida
+    try {
+      await acc.authHeaders;
+    } catch (_) {}
+
+    _account = acc;
     notifyListeners();
   }
 
   Future<void> signOutGoogle() async {
-    await _gsi.disconnect();
+    try {
+      await _gsi.disconnect();
+    } catch (_) {}
     _account = null;
     notifyListeners();
   }
 
-  // Borra solo datos de perfil en Hive (no historias)
   Future<void> clearProfileData() async {
     _box ??= await Hive.openBox(_profileBox);
     await _box!.delete(_descKey);
@@ -122,7 +148,7 @@ class AccountService with ChangeNotifier {
     'displayName': googleDisplayName,
     'email': email,
     'authorDescription': authorDescription,
-    'customUserName': customUserName, // NUEVO
+    'customUserName': customUserName,
     'hasPhoto': photoPath != null,
   };
 }

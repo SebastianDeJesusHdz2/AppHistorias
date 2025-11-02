@@ -1,4 +1,3 @@
-// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -43,7 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await LocalStorageService.saveApiKey(apiKeyController.text.trim());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key guardada localmente.')));
-    Navigator.pop(context, true); // notifica a Home para refrescar
+    Navigator.pop(context, true);
   }
 
   Future<bool> _confirm(String title, String message) async {
@@ -57,11 +56,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continuar')),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
   }
 
-  // Limpia solo API key + imágenes/copias locales. NO borra historias.
   Future<void> _clearCachesOnly() async {
     final ok = await _confirm(
       'Borrar cachés',
@@ -75,10 +72,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() => apiKeyController.clear());
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cachés limpiadas. Historias conservadas.')));
-    Navigator.pop(context, true); // avisa a Home
+    Navigator.pop(context, true);
   }
 
-  // Borra únicamente historias (no API key).
   Future<void> _clearStoriesOnly() async {
     final ok = await _confirm(
       'Borrar historias',
@@ -86,17 +82,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (!ok) return;
 
-    // 1) Borra en disco
     await LocalStorageService.clearStoriesOnly();
 
-    // 2) Borra en memoria y notifica
     final provider = Provider.of<StoryProvider>(context, listen: false);
     provider.stories.clear();
-    await provider.saveAll(); // mantiene consistencia de caja vacía
+    await provider.saveAll();
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Historias eliminadas.')));
-    Navigator.pop(context, true); // Home recarga de inmediato
+    Navigator.pop(context, true);
   }
 
   Future<void> _toggleShowDeleteHint(bool v) async {
@@ -127,6 +121,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
+          // Nuevo: solo acceso a la configuración de perfil
+          const _SectionTitle('Perfil'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              child: ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('Editar perfil del autor'),
+                subtitle: const Text('Foto, nombre (de Google) y descripción'),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                onTap: () => Navigator.of(context).pushNamed('/account'),
+              ),
+            ),
+          ),
+
           const _SectionTitle('API externa'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

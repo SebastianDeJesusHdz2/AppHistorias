@@ -4,18 +4,24 @@ import 'package:provider/provider.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 
-// Usa imports por paquete para evitar tipos duplicados
+// Servicios propios
 import 'package:apphistorias/services/local_storage_service.dart';
+import 'package:apphistorias/services/account_service.dart';
+import 'package:apphistorias/services/cloud_sync_service.dart';
+
+// Pantallas
 import 'package:apphistorias/screens/home_screen.dart';
 import 'package:apphistorias/screens/settings_screen.dart';
+import 'package:apphistorias/screens/account_screen.dart';
+
+// Modelos
 import 'package:apphistorias/models/story.dart';
 
-// Provider con persistencia en Hive (JSON a través del LocalStorageService)
+// Proveedor de historias (sin cambios funcionales)
 class StoryProvider with ChangeNotifier {
   final List<Story> _stories = [];
   List<Story> get stories => _stories;
 
-  // Carga inicial desde disco
   Future<void> init() async {
     final loaded = await LocalStorageService.getStories();
     _stories
@@ -51,7 +57,6 @@ class StoryProvider with ChangeNotifier {
     }
   }
 
-  // Útil cuando edites una historia/raza/personaje en detalle
   Future<void> saveAll() async {
     await _persist();
     notifyListeners();
@@ -71,9 +76,16 @@ Future<void> main() async {
   final storyProvider = StoryProvider();
   await storyProvider.init();
 
+  final accountService = AccountService();
+  await accountService.init();
+
   runApp(
-    ChangeNotifierProvider.value(
-      value: storyProvider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<StoryProvider>.value(value: storyProvider),
+        ChangeNotifierProvider<AccountService>.value(value: accountService),
+        Provider<CloudSyncService>(create: (_) => CloudSyncService()),
+      ],
       child: const MainThemeSwitcher(),
     ),
   );
@@ -156,12 +168,14 @@ class _MainThemeSwitcherState extends State<MainThemeSwitcher> {
         ),
       ),
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
+      // HomeScreen ahora construye el título con Provider (no pasar appBarTitle)
       home: HomeScreen(
         onThemeToggle: _toggleTheme,
         isDark: _isDark,
       ),
       routes: {
         '/settings': (context) => const SettingsScreen(),
+        '/account': (context) => const AccountScreen(),
       },
     );
   }

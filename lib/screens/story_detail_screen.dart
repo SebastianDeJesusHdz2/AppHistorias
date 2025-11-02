@@ -5,17 +5,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// Imports por paquete
 import 'package:apphistorias/models/story.dart';
 import 'package:apphistorias/models/race.dart';
 import 'package:apphistorias/models/character.dart';
 
 import 'package:apphistorias/screens/race_form.dart';
 import 'package:apphistorias/screens/character_form.dart';
+import 'package:apphistorias/screens/chapter_editor_screen.dart';
+import 'package:apphistorias/screens/pdf_preview_screen.dart';
 
 import 'package:apphistorias/widgets/image_selector.dart';
 
-// Persistencia e imágenes
 import 'package:apphistorias/services/local_storage_service.dart';
 import 'package:apphistorias/main.dart'; // StoryProvider
 
@@ -29,9 +29,12 @@ class StoryDetailScreen extends StatefulWidget {
 
 class _StoryDetailScreenState extends State<StoryDetailScreen> {
   // ========= Utilidades de imagen =========
+  String _cacheBuster() => '?t=${DateTime.now().millisecondsSinceEpoch}';
+
   Future<String?> _persistAnyImage(String? img) async {
     if (img == null || img.isEmpty) return null;
-    final looksBase64 = img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
+    final looksBase64 =
+        img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
     try {
       if (looksBase64) {
         return await LocalStorageService.saveBase64ToImage(img);
@@ -52,7 +55,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     child: Icon(Icons.broken_image, size: h * 0.45, color: Colors.redAccent),
   );
 
-  Widget _buildAnyImage(String? img, {double w = 120, double h = 120, BoxFit fit = BoxFit.cover}) {
+  Widget _buildAnyImage(String? img,
+      {double w = 120, double h = 120, BoxFit fit = BoxFit.cover}) {
     if (img == null || img.isEmpty) {
       return Container(
         width: w,
@@ -61,47 +65,79 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         child: Icon(Icons.image, size: h * 0.45, color: Colors.grey.shade400),
       );
     }
-    final looksBase64 = img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
+
+    final looksBase64 =
+        img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
 
     if (looksBase64) {
       try {
-        return Image.memory(base64Decode(img), width: w, height: h, fit: fit,
-            errorBuilder: (_, __, ___) => _broken(w, h));
+        final bytes = base64Decode(img);
+        return Image.memory(
+          bytes,
+          width: w,
+          height: h,
+          fit: fit,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) => _broken(w, h),
+        );
       } catch (_) {
         return _broken(w, h);
       }
     }
+
     if (img.startsWith('http')) {
-      return Image.network(img, width: w, height: h, fit: fit,
-          errorBuilder: (_, __, ___) => _broken(w, h));
+      final url = img.contains('?t=') ? img : img + _cacheBuster();
+      return Image.network(
+        url,
+        width: w,
+        height: h,
+        fit: fit,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => _broken(w, h),
+      );
     }
+
     final f = File(img);
     if (!f.existsSync()) return _broken(w, h);
-    return Image.file(f, width: w, height: h, fit: fit,
-        errorBuilder: (_, __, ___) => _broken(w, h));
+
+    return Image(
+      image: FileImage(f),
+      width: w,
+      height: h,
+      fit: fit,
+      gaplessPlayback: true,
+      errorBuilder: (_, __, ___) => _broken(w, h),
+    );
   }
 
   void _showImagePreview(String? img) {
     if (img == null || img.isEmpty) return;
+
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (_) {
-        final looksBase64 = img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
+        final looksBase64 =
+            img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
+
         Widget large;
         if (looksBase64) {
           try {
-            large = Image.memory(base64Decode(img), fit: BoxFit.contain);
+            large = Image.memory(base64Decode(img), fit: BoxFit.contain, gaplessPlayback: true);
           } catch (_) {
             large = _broken(double.infinity, 220);
           }
         } else if (img.startsWith('http')) {
-          large = Image.network(img, fit: BoxFit.contain,
+          final url = img.contains('?t=') ? img : img + _cacheBuster();
+          large = Image.network(url, fit: BoxFit.contain, gaplessPlayback: true,
               errorBuilder: (_, __, ___) => _broken(double.infinity, 220));
         } else {
           final f = File(img);
-          large = f.existsSync() ? Image.file(f, fit: BoxFit.contain) : _broken(double.infinity, 220);
+          large = f.existsSync()
+              ? Image.file(f, fit: BoxFit.contain, gaplessPlayback: true)
+              : _broken(double.infinity, 220);
         }
+
         return Dialog(
           backgroundColor: Colors.black.withOpacity(0.6),
           insetPadding: const EdgeInsets.all(12),
@@ -136,7 +172,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     await Provider.of<StoryProvider>(context, listen: false).saveAll();
   }
 
-  // Imagen de historia (persistente)
   Future<void> _actualizaImagen(String img) async {
     final path = await _persistAnyImage(img);
     setState(() => widget.story.imagePath = path);
@@ -145,9 +180,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
   // ========= Crear / editar entidades =========
   Future<void> _crearRaza() async {
-    final newRace = await Navigator.push(context, MaterialPageRoute(builder: (_) => const RaceForm()));
+    final newRace =
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const RaceForm()));
     if (newRace is Race) {
-      // Normaliza imagen si viene base64/url
       newRace.imagePath = await _persistAnyImage(newRace.imagePath);
       setState(() => widget.story.races.add(newRace));
       await _persistAll();
@@ -171,11 +206,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
-            left: 16, right: 16, top: 12,
+            left: 16,
+            right: 16,
+            top: 12,
           ),
           child: StatefulBuilder(
             builder: (ctx2, setModal) {
-              void addField() => setModal(() => fields.add(RaceFieldDef(key: '', label: '', type: RaceFieldType.text)));
+              void addField() =>
+                  setModal(() => fields.add(RaceFieldDef(key: '', label: '', type: RaceFieldType.text)));
               void removeField(int i) => setModal(() => fields.removeAt(i));
 
               return SingleChildScrollView(
@@ -194,13 +232,25 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Expanded(child: ImageSelector(onImageSelected: (img) => setModal(() => tempImage = img))),
+                        Expanded(
+                          child: ImageSelector(
+                            onImageSelected: (img) => setModal(() => tempImage = img),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder())),
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder())),
+                    TextField(
+                      controller: descCtrl,
+                      maxLines: 3,
+                      decoration:
+                      const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                    ),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -225,7 +275,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: labelCtrl,
-                                      decoration: const InputDecoration(labelText: 'Etiqueta', border: OutlineInputBorder()),
+                                      decoration: const InputDecoration(
+                                          labelText: 'Etiqueta', border: OutlineInputBorder()),
                                       onChanged: (v) => f.label = v,
                                     ),
                                   ),
@@ -233,7 +284,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: keyCtrl,
-                                      decoration: const InputDecoration(labelText: 'Clave', border: OutlineInputBorder()),
+                                      decoration:
+                                      const InputDecoration(labelText: 'Clave', border: OutlineInputBorder()),
                                       onChanged: (v) => f.key = v,
                                     ),
                                   ),
@@ -242,7 +294,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               const SizedBox(height: 10),
                               Row(
                                 children: [
-                                  const Text('Tipo:'), const SizedBox(width: 10),
+                                  const Text('Tipo:'),
+                                  const SizedBox(width: 10),
                                   DropdownButton<RaceFieldType>(
                                     value: f.type,
                                     onChanged: (v) => v != null ? setModal(() => f.type = v) : null,
@@ -253,7 +306,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                     ],
                                   ),
                                   const Spacer(),
-                                  IconButton(onPressed: () => removeField(i), icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                                  IconButton(
+                                      onPressed: () => removeField(i),
+                                      icon: const Icon(Icons.delete_forever, color: Colors.red)),
                                 ],
                               ),
                             ],
@@ -267,7 +322,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       child: ElevatedButton.icon(
                         onPressed: () async {
                           if (nameCtrl.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El nombre es obligatorio')));
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(content: Text('El nombre es obligatorio')));
                             return;
                           }
                           final persisted = await _persistAnyImage(tempImage);
@@ -275,7 +331,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             race.name = nameCtrl.text.trim();
                             race.description = descCtrl.text.trim();
                             race.imagePath = persisted;
-                            race.fields = fields.where((f) => f.key.trim().isNotEmpty && f.label.trim().isNotEmpty).toList();
+                            race.fields = fields
+                                .where((f) => f.key.trim().isNotEmpty && f.label.trim().isNotEmpty)
+                                .toList();
                           });
                           await _persistAll();
                           if (context.mounted) Navigator.pop(ctx);
@@ -305,7 +363,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             : 'La raza "${race.name}" tiene ${race.characters.length} personaje(s). Se eliminarán también.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: const Text('Eliminar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Eliminar')),
         ],
       ),
     );
@@ -346,7 +407,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            left: 16, right: 16, top: 12,
+            left: 16,
+            right: 16,
+            top: 12,
           ),
           child: StatefulBuilder(
             builder: (ctx2, setModal) {
@@ -391,7 +454,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         onPressed: () async {
                           final name = nameCtrl.text.trim();
                           if (name.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El nombre es obligatorio')));
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(content: Text('El nombre es obligatorio')));
                             return;
                           }
                           final persisted = await _persistAnyImage(tempImage);
@@ -409,7 +473,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           await _persistAll();
                           if (context.mounted) {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Personaje actualizado')));
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(content: Text('Personaje actualizado')));
                           }
                         },
                         icon: const Icon(Icons.save),
@@ -435,7 +500,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         content: Text('¿Seguro que quieres eliminar a "${ch.name}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), style: FilledButton.styleFrom(backgroundColor: Colors.red), child: const Text('Eliminar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Eliminar')),
         ],
       ),
     );
@@ -443,7 +511,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       setState(() => race.characters.removeWhere((c) => c.id == ch.id));
       await _persistAll();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Personaje "${ch.name}" eliminado')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Personaje "${ch.name}" eliminado')));
     }
   }
 
@@ -453,7 +522,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     final leftColumn = [
       GestureDetector(
         onTap: () => _showImagePreview(widget.story.imagePath),
-        child: ClipRRect(borderRadius: BorderRadius.circular(16), child: _buildAnyImage(widget.story.imagePath)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: _buildAnyImage(widget.story.imagePath, w: double.infinity, h: 180),
+        ),
       ),
       const SizedBox(height: 12),
       ImageSelector(onImageSelected: _actualizaImagen),
@@ -474,7 +546,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             leading: GestureDetector(
               onTap: () => _showImagePreview(race.imagePath),
-              child: ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildAnyImage(race.imagePath, w: 48, h: 48)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: _buildAnyImage(race.imagePath, w: 48, h: 48),
+              ),
             ),
             title: Text(race.name, overflow: TextOverflow.ellipsis),
             subtitle: Text(race.description, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -482,7 +557,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               spacing: 6,
               children: [
                 IconButton(tooltip: 'Editar', onPressed: () => _editarRaza(race), icon: const Icon(Icons.edit)),
-                IconButton(tooltip: 'Eliminar raza', onPressed: () => _eliminarRaza(race), icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                IconButton(
+                    tooltip: 'Eliminar raza',
+                    onPressed: () => _eliminarRaza(race),
+                    icon: const Icon(Icons.delete_forever, color: Colors.red)),
               ],
             ),
           ),
@@ -491,9 +569,41 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     ];
 
     final rightColumn = [
-      Text(widget.story.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 26), overflow: TextOverflow.ellipsis),
+      Text(widget.story.title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 26), overflow: TextOverflow.ellipsis),
       const SizedBox(height: 8),
       Text(widget.story.description, style: TextStyle(fontSize: 17, color: Colors.grey[700])),
+      const SizedBox(height: 12),
+
+      // Botones de escritura y PDF
+      Row(
+        children: [
+          FilledButton.icon(
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ChapterEditorScreen(story: widget.story)),
+              );
+              if (mounted) setState(() {}); // refresca capítulos al volver
+              await _persistAll();
+            },
+            icon: const Icon(Icons.edit_note),
+            label: const Text('Escribir'),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PdfPreviewScreen(story: widget.story)),
+              );
+            },
+            icon: const Icon(Icons.picture_as_pdf),
+            label: const Text('Exportar PDF'),
+          ),
+        ],
+      ),
+
       const SizedBox(height: 20),
       const Text('Personajes por raza', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
       const SizedBox(height: 8),
@@ -503,7 +613,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
-            leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildAnyImage(race.imagePath, w: 36, h: 36)),
+            leading:
+            ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildAnyImage(race.imagePath, w: 36, h: 36)),
             title: Text(race.name, overflow: TextOverflow.ellipsis),
             subtitle: Text('$count personaje${count == 1 ? '' : 's'}'),
             childrenPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -511,7 +622,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               spacing: 8,
               children: [
                 TextButton.icon(onPressed: () => _crearPersonaje(race), icon: const Icon(Icons.add), label: const Text('Agregar')),
-                IconButton(tooltip: 'Eliminar raza', onPressed: () => _eliminarRaza(race), icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                IconButton(
+                    tooltip: 'Eliminar raza',
+                    onPressed: () => _eliminarRaza(race),
+                    icon: const Icon(Icons.delete_forever, color: Colors.red)),
               ],
             ),
             children: [
@@ -524,7 +638,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     leading: GestureDetector(
                       onTap: () => _showImagePreview(ch.imagePath),
-                      child: ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildAnyImage(ch.imagePath, w: 44, h: 44)),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _buildAnyImage(ch.imagePath, w: 44, h: 44),
+                      ),
                     ),
                     title: Text(ch.name, overflow: TextOverflow.ellipsis),
                     subtitle: Text(
@@ -537,7 +654,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       spacing: 6,
                       children: [
                         IconButton(tooltip: 'Editar', onPressed: () => _editarPersonaje(race, ch), icon: const Icon(Icons.edit)),
-                        IconButton(tooltip: 'Eliminar', onPressed: () => _eliminarPersonaje(race, ch), icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                        IconButton(
+                            tooltip: 'Eliminar',
+                            onPressed: () => _eliminarPersonaje(race, ch),
+                            icon: const Icon(Icons.delete_forever, color: Colors.red)),
                       ],
                     ),
                   ),
@@ -549,7 +669,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       }),
     ];
 
-    // Responsive
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 700;

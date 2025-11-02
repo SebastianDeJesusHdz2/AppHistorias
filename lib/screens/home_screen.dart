@@ -12,6 +12,9 @@ import 'package:apphistorias/screens/story_form.dart';
 import 'package:apphistorias/screens/settings_screen.dart';
 import 'package:apphistorias/services/local_storage_service.dart';
 
+// Para mostrar nombre y foto en el AppBar
+import 'package:apphistorias/services/account_service.dart';
+
 class HomeScreen extends StatefulWidget {
   final void Function(bool) onThemeToggle;
   final bool isDark;
@@ -48,10 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (_) => const SettingsScreen()),
     );
-    // Si Settings cambió algo relevante, recarga prefs/estado
     if (changed == true) {
       await _loadPrefs();
-      // Si borró historias, el provider ya fue limpiado; forzar rebuild
       if (mounted) setState(() {});
     }
   }
@@ -84,9 +85,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'CronIA',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28, letterSpacing: 2),
+        // Título dinámico: avatar + nombre (o CronIA)
+        title: Consumer<AccountService>(
+          builder: (_, acc, __) {
+            final hasPhoto = acc.photoBytes != null;
+            final title = (acc.displayName?.trim().isNotEmpty ?? false)
+                ? acc.displayName!.trim()
+                : 'CronIA';
+            final avatar = hasPhoto
+                ? CircleAvatar(radius: 14, backgroundImage: MemoryImage(acc.photoBytes!))
+                : const CircleAvatar(radius: 14, child: Icon(Icons.person, size: 16));
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                avatar,
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, letterSpacing: 1),
+                ),
+              ],
+            );
+          },
         ),
         actions: [
           IconButton(
@@ -168,8 +188,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     leadingWidget = ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: f.existsSync()
-                          ? Image.file(f, width: 56, height: 56, fit: BoxFit.cover,
-                          errorBuilder: (ctx, e, s) => const Icon(Icons.book_rounded, size: 38))
+                          ? Image.file(
+                        f,
+                        width: 56,
+                        height: 56,
+                        fit: BoxFit.cover,
+                        errorBuilder: (ctx, e, s) => const Icon(Icons.book_rounded, size: 38),
+                      )
                           : const Icon(Icons.book_rounded, size: 38),
                     );
                   }
@@ -208,7 +233,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   onDismissed: (_) async {
                     await storyProvider.removeStoryAt(index);
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Historia eliminada')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Historia eliminada')),
+                      );
                       setState(() {}); // por si desaparece el hint
                     }
                   },
@@ -233,9 +260,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         story.description,
                         style: TextStyle(fontSize: 17, color: Theme.of(context).colorScheme.secondary),
                       ),
-                      trailing: Icon(Icons.keyboard_arrow_right_rounded, color: Theme.of(context).colorScheme.tertiary, size: 30),
+                      trailing: Icon(
+                        Icons.keyboard_arrow_right_rounded,
+                        color: Theme.of(context).colorScheme.tertiary,
+                        size: 30,
+                      ),
                       onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (ctx) => StoryDetailScreen(story: story)));
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (ctx) => StoryDetailScreen(story: story),
+                          ),
+                        );
                         if (mounted) setState(() {}); // refleja cambios al volver
                       },
                     ),
@@ -249,9 +285,11 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Theme.of(context).colorScheme.primary,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Nueva historia', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        label: const Text('Nueva historia',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         onPressed: () async {
-          final newStory = await Navigator.push(context, MaterialPageRoute(builder: (ctx) => StoryForm()));
+          final newStory =
+          await Navigator.push(context, MaterialPageRoute(builder: (ctx) => StoryForm()));
           if (newStory != null && newStory is Story) {
             await storyProvider.addStory(newStory);
             if (mounted) setState(() {});

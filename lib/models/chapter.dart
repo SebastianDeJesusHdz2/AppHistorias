@@ -15,3 +15,4 @@ class Chapter {
   factory Chapter.fromMap(Map<String, dynamic> m) =>
       Chapter(id: m['id'], title: m['title'], content: m['content'] ?? '');
 }
+

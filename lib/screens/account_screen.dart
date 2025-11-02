@@ -13,6 +13,7 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   final _descCtrl = TextEditingController();
+  final _nameCtrl = TextEditingController(); // NUEVO
   bool _busy = false;
 
   @override
@@ -20,12 +21,41 @@ class _AccountScreenState extends State<AccountScreen> {
     super.initState();
     final acc = context.read<AccountService>();
     _descCtrl.text = acc.authorDescription;
+    _nameCtrl.text = acc.customUserName; // NUEVO
   }
 
   @override
   void dispose() {
     _descCtrl.dispose();
+    _nameCtrl.dispose(); // NUEVO
     super.dispose();
+  }
+
+  Future<void> _confirmAndClear(AccountService acc) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Borrar datos de perfil'),
+        content: const Text(
+          'Se eliminarán nombre de usuario, descripción y foto guardados localmente. '
+              'Tus historias permanecerán intactas.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Borrar')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await acc.clearProfileData();
+      if (!mounted) return;
+      _descCtrl.clear();
+      _nameCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Datos de perfil borrados.')),
+      );
+      setState(() {}); // refresca avatar/nombre
+    }
   }
 
   @override
@@ -64,21 +94,35 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Center(
-              child: Text(acc.displayName ?? 'Sin sesión', style: theme.textTheme.titleMedium),
-            ),
+            Center(child: Text(acc.displayName, style: theme.textTheme.titleMedium)),
             if (acc.email != null)
               Center(child: Text(acc.email!, style: theme.textTheme.bodySmall)),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 20),
+            // NUEVO: nombre de usuario editable (prioridad sobre Google)
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nombre de usuario',
+                helperText: 'Se mostrará en la app. Si lo dejas vacío, se usará el nombre de Google.',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+              onChanged: acc.setCustomUserName,
+            ),
+
+            const SizedBox(height: 12),
             TextField(
               controller: _descCtrl,
               maxLines: 3,
               decoration: const InputDecoration(
                 labelText: 'Descripción de autor',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.description_outlined),
               ),
               onChanged: acc.setAuthorDescription,
             ),
+
             const SizedBox(height: 12),
             Row(
               children: [
@@ -100,8 +144,16 @@ class _AccountScreenState extends State<AccountScreen> {
                       if (mounted) setState(() {});
                     },
                   ),
+                const SizedBox(width: 12),
+                // NUEVO: botón borrar datos de perfil locales
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  label: const Text('Borrar datos de perfil'),
+                  onPressed: () => _confirmAndClear(acc),
+                ),
               ],
             ),
+
             const SizedBox(height: 16),
             Wrap(
               spacing: 12,

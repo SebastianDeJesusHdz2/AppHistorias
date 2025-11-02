@@ -338,3 +338,4 @@ class _CharacterFormState extends State<CharacterForm> {
     }
   }
 }
+

@@ -5,3 +5,4 @@ class Constants {
   static const defaultCharacterImage = 'assets/images/default_character.png';
 // Más constantes de recursos o textos si lo requieres
 }
+

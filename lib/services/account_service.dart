@@ -15,6 +15,7 @@ class AccountService with ChangeNotifier {
   // Perfil local
   String authorDescription = '';
   String? photoPath;
+  String customUserName = ''; // NUEVO: nombre de usuario editable
   Uint8List? get photoBytes =>
       (photoPath != null && !kIsWeb && File(photoPath!).existsSync())
           ? File(photoPath!).readAsBytesSync()
@@ -30,19 +31,28 @@ class AccountService with ChangeNotifier {
   );
   GoogleSignInAccount? _account;
   GoogleSignInAccount? get account => _account;
-  String? get displayName => _account?.displayName;
+  String? get googleDisplayName => _account?.displayName;
   String? get email => _account?.email;
+
+  // Nombre a mostrar: prioridad al personalizado, luego Google, luego “Sin sesión”
+  String get displayName {
+    if (customUserName.trim().isNotEmpty) return customUserName.trim();
+    if ((googleDisplayName ?? '').trim().isNotEmpty) return googleDisplayName!.trim();
+    return 'Sin sesión';
+  }
 
   // Hive
   static const _profileBox = 'profile';
   static const _descKey = 'authorDescription';
   static const _photoKey = 'photoPath';
+  static const _nameKey = 'customUserName'; // NUEVO
   Box? _box;
 
   Future<void> init() async {
     _box ??= await Hive.openBox(_profileBox);
     authorDescription = (_box!.get(_descKey) as String?) ?? '';
     photoPath = _box!.get(_photoKey) as String?;
+    customUserName = (_box!.get(_nameKey) as String?) ?? '';
     try {
       _account = await _gsi.signInSilently();
     } catch (_) {}
@@ -52,6 +62,12 @@ class AccountService with ChangeNotifier {
   Future<void> setAuthorDescription(String v) async {
     authorDescription = v;
     await _box?.put(_descKey, v);
+    notifyListeners();
+  }
+
+  Future<void> setCustomUserName(String v) async {
+    customUserName = v;
+    await _box?.put(_nameKey, v);
     notifyListeners();
   }
 
@@ -83,6 +99,18 @@ class AccountService with ChangeNotifier {
     notifyListeners();
   }
 
+  // Borra solo datos de perfil en Hive (no historias)
+  Future<void> clearProfileData() async {
+    _box ??= await Hive.openBox(_profileBox);
+    await _box!.delete(_descKey);
+    await _box!.delete(_photoKey);
+    await _box!.delete(_nameKey);
+    authorDescription = '';
+    photoPath = null;
+    customUserName = '';
+    notifyListeners();
+  }
+
   Future<http.Client?> authenticatedHttpClient() async {
     final u = _account ?? await _gsi.signInSilently();
     if (u == null) return null;
@@ -91,9 +119,10 @@ class AccountService with ChangeNotifier {
   }
 
   Map<String, dynamic> toProfileJson() => {
-    'displayName': displayName,
+    'displayName': googleDisplayName,
     'email': email,
     'authorDescription': authorDescription,
+    'customUserName': customUserName, // NUEVO
     'hasPhoto': photoPath != null,
   };
 }

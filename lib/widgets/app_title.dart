@@ -29,3 +29,4 @@ class AppTitle extends StatelessWidget {
     );
   }
 }
+

@@ -97,7 +97,6 @@ class _AccountScreenState extends State<AccountScreen> {
             Center(child: Text(acc.displayName, style: theme.textTheme.titleMedium)),
             if (acc.email != null)
               Center(child: Text(acc.email!, style: theme.textTheme.bodySmall)),
-
             const SizedBox(height: 20),
             TextField(
               controller: _nameCtrl,
@@ -128,25 +127,23 @@ class _AccountScreenState extends State<AccountScreen> {
                   label: Text(acc.account == null ? 'Conectar Google' : 'Cambiar cuenta'),
                   onPressed: () async {
                     setState(() => _busy = true);
-                    try {
-                      await acc.signInWithGoogle();
-                      if (!mounted) return;
-                      if (acc.account != null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Conectado: ${acc.displayName}')),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Inicio cancelado o sin cambios.')),
-                        );
-                      }
-                    } catch (e) {
-                      if (!mounted) return;
+                    final result = await acc.signInWithGoogle();
+                    if (!mounted) return;
+                    setState(() => _busy = false);
+
+                    if (result.ok && acc.account != null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error de Google Sign-In: $e')),
+                        SnackBar(content: Text('Conectado: ${acc.displayName}')),
                       );
-                    } finally {
-                      if (mounted) setState(() => _busy = false);
+                    } else if (result.error != null) {
+                      // Errores típicos de configuración: 10 o 12500
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error de Google Sign-In (código ${result.error}). Revisa SHA y OAuth.')),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Inicio cancelado por el usuario.')),
+                      );
                     }
                   },
                 ),

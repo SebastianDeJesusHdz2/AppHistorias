@@ -1,9 +1,9 @@
-// lib/services/account_service.dart (SIN initialize)
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,11 +12,15 @@ import 'package:http/http.dart' as http;
 
 import 'package:apphistorias/services/local_storage_service.dart';
 
-class AccountService with ChangeNotifier {
-  // Reemplaza por tu Client ID WEB de OAuth 2.0 en Google Cloud
-  static const String _webServerClientId = 'TU_WEB_CLIENT_ID.apps.googleusercontent.com';
+class SignInResult {
+  final bool ok;
+  final String? error; // códigos típicos: 10, 12500 o null si canceló
+  const SignInResult(this.ok, this.error);
+}
 
-  // Perfil local
+class AccountService with ChangeNotifier {
+  static const String _webServerClientId = '138921401527-i5gclqsj4qsajktbqo68mv7c910f3h84.apps.googleusercontent.com'; // reemplaza
+
   String authorDescription = '';
   String? photoPath;
   String customUserName = '';
@@ -25,15 +29,9 @@ class AccountService with ChangeNotifier {
           ? File(photoPath!).readAsBytesSync()
           : null;
 
-  // Google Sign-In: pasa serverClientId EN EL CONSTRUCTOR (soporta 6.x y 7.x)
   late final GoogleSignIn _gsi = GoogleSignIn(
-    serverClientId: _webServerClientId, // clave: aquí, no con initialize()
-    scopes: const [
-      'https://www.googleapis.com/auth/drive.file',
-      'email',
-      'profile',
-    ],
-    // hostedDomain: null, // opcional si quisieras restringir dominios
+    serverClientId: _webServerClientId,
+    scopes: const ['email', 'profile'], // Drive se pedirá después
   );
 
   GoogleSignInAccount? _account;
@@ -47,7 +45,6 @@ class AccountService with ChangeNotifier {
     return 'Sin sesión';
   }
 
-  // Hive
   static const _profileBox = 'profile';
   static const _descKey = 'authorDescription';
   static const _photoKey = 'photoPath';
@@ -61,7 +58,10 @@ class AccountService with ChangeNotifier {
     customUserName = (_box!.get(_nameKey) as String?) ?? '';
     try {
       _account = await _gsi.signInSilently();
-    } catch (_) {}
+      if (_account != null) await _ensureDriveScope();
+    } catch (e) {
+      debugPrint('signInSilently error: $e');
+    }
     notifyListeners();
   }
 
@@ -94,28 +94,56 @@ class AccountService with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signInWithGoogle() async {
-    // Intenta silent para reusar sesión si existe
+  Future<void> _ensureDriveScope() async {
     try {
-      await _gsi.signInSilently();
+      await _gsi.requestScopes(const ['https://www.googleapis.com/auth/drive.file']);
+    } catch (e) {
+      debugPrint('requestScopes error: $e');
+    }
+  }
+
+  Future<SignInResult> signInWithGoogle() async {
+    try {
+      await _gsi.disconnect(); // limpia estado previo
     } catch (_) {}
 
-    // Interactivo: el usuario puede elegir cualquier cuenta
     GoogleSignInAccount? acc;
+    String? errorCode;
+
     try {
       acc = await _gsi.signIn();
-    } catch (_) {
+    } on PlatformException catch (e) {
+      errorCode = '${e.code}';
+      debugPrint('signIn PlatformException: code=${e.code}, msg=${e.message}');
+      acc = null;
+    } catch (e) {
+      debugPrint('signIn error: $e');
       acc = null;
     }
-    if (acc == null) return; // cancelado
 
-    // Fuerza obtención de headers (token) para confirmar sesión válida
+    if (acc == null) {
+      try {
+        acc = await _gsi.signInSilently();
+      } catch (e) {
+        debugPrint('signInSilently after picker error: $e');
+      }
+    }
+
+    if (acc == null) {
+      return SignInResult(false, errorCode); // null => cancelado o error (código si hubo)
+    }
+
     try {
-      await acc.authHeaders;
-    } catch (_) {}
+      await acc.authHeaders; // fuerza token
+    } catch (e) {
+      debugPrint('authHeaders error: $e');
+    }
+
+    await _ensureDriveScope();
 
     _account = acc;
     notifyListeners();
+    return const SignInResult(true, null);
   }
 
   Future<void> signOutGoogle() async {

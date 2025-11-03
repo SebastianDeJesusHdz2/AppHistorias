@@ -17,12 +17,20 @@ import 'package:apphistorias/screens/account_screen.dart';
 // Modelos
 import 'package:apphistorias/models/story.dart';
 
-// Proveedor de historias (sin cambios funcionales)
+// Proveedor de historias (con recarga desde disco)
 class StoryProvider with ChangeNotifier {
   final List<Story> _stories = [];
   List<Story> get stories => _stories;
 
   Future<void> init() async {
+    final loaded = await LocalStorageService.getStories();
+    _stories
+      ..clear()
+      ..addAll(loaded);
+    notifyListeners();
+  }
+
+  Future<void> reloadFromDisk() async {
     final loaded = await LocalStorageService.getStories();
     _stories
       ..clear()
@@ -168,7 +176,6 @@ class _MainThemeSwitcherState extends State<MainThemeSwitcher> {
         ),
       ),
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
-      // HomeScreen ahora construye el título con Provider (no pasar appBarTitle)
       home: HomeScreen(
         onThemeToggle: _toggleTheme,
         isDark: _isDark,
@@ -180,4 +187,3 @@ class _MainThemeSwitcherState extends State<MainThemeSwitcher> {
     );
   }
 }
-

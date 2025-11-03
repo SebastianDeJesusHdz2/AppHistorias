@@ -88,9 +88,10 @@ class _CharacterFormState extends State<CharacterForm> {
   }
 
   Widget _buildRaceFields() {
-    if (_selectedRace == null) return const Text('No hay razas disponibles.');
+    final palette = _PaperPalette.of(context);
+    if (_selectedRace == null) return Text('No hay razas disponibles.', style: TextStyle(color: palette.inkMuted));
     if (_selectedRace!.fields.isEmpty) {
-      return const Text('Esta raza no define características adicionales.');
+      return Text('Esta raza no define características adicionales.', style: TextStyle(color: palette.inkMuted));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,10 +102,8 @@ class _CharacterFormState extends State<CharacterForm> {
               padding: const EdgeInsets.only(bottom: 12),
               child: TextField(
                 controller: _textCtrls[f.key],
-                decoration: InputDecoration(
-                  labelText: f.label,
-                  border: const OutlineInputBorder(),
-                ),
+                style: TextStyle(color: palette.ink),
+                decoration: _deco(context, f.label),
               ),
             );
           case RaceFieldType.number:
@@ -113,17 +112,20 @@ class _CharacterFormState extends State<CharacterForm> {
               child: TextField(
                 controller: _numberCtrls[f.key],
                 keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: f.label,
-                  border: const OutlineInputBorder(),
-                ),
+                style: TextStyle(color: palette.ink),
+                decoration: _deco(context, f.label),
               ),
             );
           case RaceFieldType.boolean:
-            return SwitchListTile(
-              title: Text(f.label),
+            return SwitchListTile.adaptive(
+              title: Text(f.label, style: TextStyle(color: palette.ink)),
               value: _boolValues[f.key] ?? false,
               onChanged: (v) => setState(() => _boolValues[f.key] = v),
+              activeColor: palette.ribbon,
+              secondary: Icon(
+                (_boolValues[f.key] ?? false) ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: palette.inkMuted,
+              ),
             );
         }
       }).toList(),
@@ -204,99 +206,167 @@ class _CharacterFormState extends State<CharacterForm> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _PaperPalette.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuevo Personaje')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _previewImage(_image),
+      body: Stack(
+        children: [
+          // Fondo pergamino
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: palette.backgroundGradient,
+                  stops: const [0.0, 0.5, 1.0],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ImageSelector(onImageSelected: _onImageSelected),
+              ),
+            ),
+          ),
+          // Viñeta radial suave
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0.0, -0.6),
+                    radius: 1.2,
+                    colors: [Colors.black.withOpacity(0.06), Colors.transparent],
+                    stops: const [0.0, 1.0],
+                  ),
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
+          ),
 
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: physicalTraitsController,
-              decoration: const InputDecoration(
-                labelText: 'Características físicas',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descriptionController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Descripción',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: personalityController,
-              decoration: const InputDecoration(
-                labelText: 'Personalidad',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
+          Column(
+            children: [
+              _PaperTopBar(title: 'Nuevo Personaje', palette: palette),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: ListView(
+                    children: [
+                      _PaperCard(
+                        palette: palette,
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: _previewImage(_image),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ImageSelector(onImageSelected: _onImageSelected),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _PaperCard(
+                        palette: palette,
+                        child: Column(
+                          children: [
+                            TextField(
+                              controller: nameController,
+                              style: TextStyle(color: palette.ink),
+                              decoration: _deco(context, 'Nombre'),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: physicalTraitsController,
+                              style: TextStyle(color: palette.ink),
+                              decoration: _deco(context, 'Características físicas'),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: descriptionController,
+                              maxLines: 3,
+                              style: TextStyle(color: palette.ink),
+                              decoration: _deco(context, 'Descripción'),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: personalityController,
+                              style: TextStyle(color: palette.ink),
+                              decoration: _deco(context, 'Personalidad'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _PaperCard(
+                        palette: palette,
+                        child: DropdownButtonFormField<Race>(
+                          value: _selectedRace != null && widget.races.contains(_selectedRace!)
+                              ? _selectedRace
+                              : (widget.races.isNotEmpty ? widget.races.first : null),
+                          items: widget.races.map((r) => DropdownMenuItem(value: r, child: Text(r.name))).toList(),
+                          onChanged: _onRaceChanged,
+                          decoration: _deco(context, 'Raza'),
+                          dropdownColor: palette.paper,
+                        ),
+                      ),
 
-            DropdownButtonFormField<Race>(
-              value: _selectedRace != null && widget.races.contains(_selectedRace!)
-                  ? _selectedRace
-                  : (widget.races.isNotEmpty ? widget.races.first : null),
-              items: widget.races
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r.name)))
-                  .toList(),
-              onChanged: _onRaceChanged,
-              decoration: const InputDecoration(
-                labelText: 'Raza',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
+                      _PaperCard(
+                        palette: palette,
+                        child: _buildRaceFields(),
+                      ),
 
-            _buildRaceFields(),
-
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _save,
-                icon: const Icon(Icons.save),
-                label: const Text('Guardar'),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: _save,
+                          icon: const Icon(Icons.save),
+                          label: const Text('Guardar'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: palette.ribbon,
+                            foregroundColor: palette.onRibbon,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: palette.edge),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _deco(BuildContext context, String label) {
+    final palette = _PaperPalette.of(context);
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: palette.inkMuted),
+      filled: true,
+      fillColor: palette.paper.withOpacity(0.7),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: palette.edge),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: palette.ribbon, width: 2),
       ),
     );
   }
 
   Widget _previewImage(String? img) {
+    final palette = _PaperPalette.of(context);
     if (img == null || img.isEmpty) {
       return Container(
         width: 72,
         height: 72,
-        color: Colors.black12,
-        child: const Icon(Icons.image, size: 32),
+        color: palette.paper,
+        child: Icon(Icons.image, size: 32, color: palette.inkMuted),
       );
     }
 
@@ -312,26 +382,31 @@ class _CharacterFormState extends State<CharacterForm> {
         return Container(
           width: 72,
           height: 72,
-          color: Colors.black12,
-          child: const Icon(Icons.broken_image, size: 32),
+          color: palette.paper,
+          child: Icon(Icons.broken_image, size: 32, color: palette.inkMuted),
         );
       }
     } else if (img.startsWith('http')) {
-      return Image.network(img, width: 72, height: 72, fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            width: 72,
-            height: 72,
-            color: Colors.black12,
-            child: const Icon(Icons.broken_image, size: 32),
-          ));
+      return Image.network(
+        img,
+        width: 72,
+        height: 72,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 72,
+          height: 72,
+          color: palette.paper,
+          child: Icon(Icons.broken_image, size: 32, color: palette.inkMuted),
+        ),
+      );
     } else {
       final file = File(img);
       if (!file.existsSync()) {
         return Container(
           width: 72,
           height: 72,
-          color: Colors.black12,
-          child: const Icon(Icons.broken_image, size: 32),
+          color: palette.paper,
+          child: Icon(Icons.broken_image, size: 32, color: palette.inkMuted),
         );
       }
       return Image.file(file, width: 72, height: 72, fit: BoxFit.cover);
@@ -339,3 +414,119 @@ class _CharacterFormState extends State<CharacterForm> {
   }
 }
 
+// ---------- Widgets y paleta “papel” ----------
+class _PaperTopBar extends StatelessWidget {
+  final String title;
+  final _PaperPalette palette;
+  const _PaperTopBar({required this.title, required this.palette});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: palette.appBarGradient,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        border: Border(bottom: BorderSide(color: palette.edge, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back_rounded, color: palette.ink),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaperCard extends StatelessWidget {
+  final Widget child;
+  final _PaperPalette palette;
+  final EdgeInsetsGeometry? margin;
+  final EdgeInsetsGeometry? padding;
+  const _PaperCard({
+    required this.child,
+    required this.palette,
+    this.margin,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin ?? const EdgeInsets.only(bottom: 16),
+      padding: padding ?? const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.edge, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _PaperPalette {
+  final BuildContext context;
+  _PaperPalette._(this.context);
+  static _PaperPalette of(BuildContext context) => _PaperPalette._(context);
+
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  // Colores principales
+  Color get paper => isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
+  Color get edge => isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
+  Color get ink => isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
+  Color get inkMuted => isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
+
+  // Cinta / primario
+  Color get ribbon => isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
+  Color get onRibbon => Colors.white;
+
+  // Gradientes
+  List<Color> get backgroundGradient => isDark
+      ? [const Color(0xFF2F2821), const Color(0xFF3A3027), const Color(0xFF2C261F)]
+      : [const Color(0xFFF6ECD7), const Color(0xFFF0E1C8), const Color(0xFFE8D6B8)];
+
+  List<Color> get appBarGradient => isDark
+      ? [const Color(0xFF3B3229), const Color(0xFF362E25)]
+      : [const Color(0xFFF7EBD5), const Color(0xFFF0E1C8)];
+}

@@ -178,6 +178,42 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     await _persistAll();
   }
 
+  // --- Helpers de normalización de claves ---
+  String _slugify(String s) {
+    var out = s.toLowerCase();
+    const repl = {
+      'á': 'a','à':'a','ä':'a','â':'a',
+      'é': 'e','è':'e','ë':'e','ê':'e',
+      'í': 'i','ì':'i','ï':'i','î':'i',
+      'ó': 'o','ò':'o','ö':'o','ô':'o',
+      'ú': 'u','ù':'u','ü':'u','û':'u',
+      'ñ': 'n'
+    };
+    out = out.split('').map((c) => repl[c] ?? c).join();
+    out = out.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+    out = out.replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_|_$'), '');
+    return out;
+  } // [web:72][web:73]
+
+  List<RaceFieldDef> _normalizeAndUniq(List<RaceFieldDef> src) {
+    final seen = <String>{};
+    final result = <RaceFieldDef>[];
+    for (final f in src) {
+      final label = f.label.trim();
+      if (label.isEmpty) continue;
+      var key = f.key.trim().isEmpty ? _slugify(label) : _slugify(f.key.trim());
+      if (key.isEmpty) continue;
+      final base = key;
+      var i = 1;
+      while (seen.contains(key)) {
+        key = '${base}_${i++}';
+      }
+      seen.add(key);
+      result.add(RaceFieldDef(key: key, label: label, type: f.type));
+    }
+    return result;
+  } // [web:72][web:73]
+
   // ========= Crear / editar entidades =========
   Future<void> _crearRaza() async {
     final newRace =
@@ -212,8 +248,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           ),
           child: StatefulBuilder(
             builder: (ctx2, setModal) {
-              void addField() =>
-                  setModal(() => fields.add(RaceFieldDef(key: '', label: '', type: RaceFieldType.text)));
+              void addField() => setModal(() =>
+                  fields.add(RaceFieldDef(key: '', label: '', type: RaceFieldType.text)));
               void removeField(int i) => setModal(() => fields.removeAt(i));
 
               return SingleChildScrollView(
@@ -248,8 +284,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     TextField(
                       controller: descCtrl,
                       maxLines: 3,
-                      decoration:
-                      const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -284,8 +319,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: keyCtrl,
-                                      decoration:
-                                      const InputDecoration(labelText: 'Clave', border: OutlineInputBorder()),
+                                      decoration: const InputDecoration(
+                                          labelText: 'Clave (opcional)', border: OutlineInputBorder()),
                                       onChanged: (v) => f.key = v,
                                     ),
                                   ),
@@ -327,13 +362,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             return;
                           }
                           final persisted = await _persistAnyImage(tempImage);
+                          final cleaned = _normalizeAndUniq(fields);
                           setState(() {
                             race.name = nameCtrl.text.trim();
                             race.description = descCtrl.text.trim();
                             race.imagePath = persisted;
-                            race.fields = fields
-                                .where((f) => f.key.trim().isNotEmpty && f.label.trim().isNotEmpty)
-                                .toList();
+                            race.fields = cleaned;
                           });
                           await _persistAll();
                           if (context.mounted) Navigator.pop(ctx);
@@ -519,6 +553,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   // ========= UI =========
   @override
   Widget build(BuildContext context) {
+    final palette = _PaperPalette.of(context);
+
     final leftColumn = [
       GestureDetector(
         onTap: () => _showImagePreview(widget.story.imagePath),
@@ -532,16 +568,23 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       const SizedBox(height: 20),
       Row(
         children: [
-          const Text('Razas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          Text('Razas', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: palette.ink)),
           const Spacer(),
           TextButton.icon(onPressed: _crearRaza, icon: const Icon(Icons.add), label: const Text('Nueva Raza')),
         ],
       ),
       const SizedBox(height: 6),
-      if (widget.story.races.isEmpty) const Text('Aún no hay razas. Agrega la primera.'),
+      if (widget.story.races.isEmpty)
+        Text('Aún no hay razas. Agrega la primera.', style: TextStyle(color: palette.inkMuted)),
       ...widget.story.races.map((race) {
         return Card(
           margin: const EdgeInsets.only(bottom: 10),
+          color: palette.paper,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: palette.edge, width: 1),
+          ),
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             leading: GestureDetector(
@@ -551,12 +594,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 child: _buildAnyImage(race.imagePath, w: 48, h: 48),
               ),
             ),
-            title: Text(race.name, overflow: TextOverflow.ellipsis),
-            subtitle: Text(race.description, maxLines: 2, overflow: TextOverflow.ellipsis),
+            title: Text(race.name, overflow: TextOverflow.ellipsis, style: TextStyle(color: palette.ink)),
+            subtitle: Text(race.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: palette.inkMuted)),
             trailing: Wrap(
               spacing: 6,
               children: [
-                IconButton(tooltip: 'Editar', onPressed: () => _editarRaza(race), icon: const Icon(Icons.edit)),
+                IconButton(tooltip: 'Editar', onPressed: () => _editarRaza(race), icon: const Icon(Icons.edit), color: palette.ink),
                 IconButton(
                     tooltip: 'Eliminar raza',
                     onPressed: () => _eliminarRaza(race),
@@ -570,12 +613,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
     final rightColumn = [
       Text(widget.story.title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 26), overflow: TextOverflow.ellipsis),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 26, color: palette.ink),
+          overflow: TextOverflow.ellipsis),
       const SizedBox(height: 8),
-      Text(widget.story.description, style: TextStyle(fontSize: 17, color: Colors.grey[700])),
+      Text(widget.story.description, style: TextStyle(fontSize: 17, color: palette.inkMuted)),
       const SizedBox(height: 12),
-
-      // Botones de escritura y PDF
       Row(
         children: [
           FilledButton.icon(
@@ -589,6 +631,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             },
             icon: const Icon(Icons.edit_note),
             label: const Text('Escribir'),
+            style: FilledButton.styleFrom(backgroundColor: palette.ribbon, foregroundColor: palette.onRibbon),
           ),
           const SizedBox(width: 12),
           OutlinedButton.icon(
@@ -600,40 +643,49 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             },
             icon: const Icon(Icons.picture_as_pdf),
             label: const Text('Exportar PDF'),
+            style: OutlinedButton.styleFrom(side: BorderSide(color: palette.edge), foregroundColor: palette.ink),
           ),
         ],
       ),
-
       const SizedBox(height: 20),
-      const Text('Personajes por raza', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+      Text('Personajes por raza', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: palette.ink)),
       const SizedBox(height: 8),
-      if (widget.story.races.isEmpty) const Text('No hay razas; agrega una para comenzar con personajes.'),
+      if (widget.story.races.isEmpty)
+        Text('No hay razas; agrega una para comenzar con personajes.', style: TextStyle(color: palette.inkMuted)),
       ...widget.story.races.map((race) {
         final count = race.characters.length;
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
+          color: palette.paper,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: palette.edge, width: 1),
+          ),
           child: ExpansionTile(
-            leading:
-            ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildAnyImage(race.imagePath, w: 36, h: 36)),
-            title: Text(race.name, overflow: TextOverflow.ellipsis),
-            subtitle: Text('$count personaje${count == 1 ? '' : 's'}'),
+            leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildAnyImage(race.imagePath, w: 36, h: 36)),
+            title: Text(race.name, overflow: TextOverflow.ellipsis, style: TextStyle(color: palette.ink)),
+            subtitle: Text('$count personaje${count == 1 ? '' : 's'}', style: TextStyle(color: palette.inkMuted)),
             childrenPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             trailing: Wrap(
               spacing: 8,
               children: [
                 TextButton.icon(onPressed: () => _crearPersonaje(race), icon: const Icon(Icons.add), label: const Text('Agregar')),
-                IconButton(
-                    tooltip: 'Eliminar raza',
-                    onPressed: () => _eliminarRaza(race),
-                    icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                IconButton(tooltip: 'Eliminar raza', onPressed: () => _eliminarRaza(race), icon: const Icon(Icons.delete_forever, color: Colors.red)),
               ],
             ),
             children: [
               if (race.characters.isEmpty)
-                const Padding(padding: EdgeInsets.only(bottom: 12), child: Text('Sin personajes en esta raza.')),
+                Padding(padding: const EdgeInsets.only(bottom: 12), child: Text('Sin personajes en esta raza.', style: TextStyle(color: palette.inkMuted))),
               ...race.characters.map((ch) {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
+                  color: palette.paper,
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: palette.edge, width: 1),
+                  ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     leading: GestureDetector(
@@ -643,21 +695,19 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         child: _buildAnyImage(ch.imagePath, w: 44, h: 44),
                       ),
                     ),
-                    title: Text(ch.name, overflow: TextOverflow.ellipsis),
+                    title: Text(ch.name, overflow: TextOverflow.ellipsis, style: TextStyle(color: palette.ink)),
                     subtitle: Text(
                       (ch.description ?? '').isEmpty
                           ? 'Sin descripción'
                           : (ch.description!.length > 80 ? '${ch.description!.substring(0, 80)}...' : ch.description!),
+                      style: TextStyle(color: palette.inkMuted),
                     ),
                     onTap: () => _editarPersonaje(race, ch),
                     trailing: Wrap(
                       spacing: 6,
                       children: [
-                        IconButton(tooltip: 'Editar', onPressed: () => _editarPersonaje(race, ch), icon: const Icon(Icons.edit)),
-                        IconButton(
-                            tooltip: 'Eliminar',
-                            onPressed: () => _eliminarPersonaje(race, ch),
-                            icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                        IconButton(tooltip: 'Editar', onPressed: () => _editarPersonaje(race, ch), icon: const Icon(Icons.edit), color: palette.ink),
+                        IconButton(tooltip: 'Eliminar', onPressed: () => _eliminarPersonaje(race, ch), icon: const Icon(Icons.delete_forever, color: Colors.red)),
                       ],
                     ),
                   ),
@@ -673,19 +723,62 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 700;
         return Scaffold(
-          appBar: AppBar(title: const Text('Detalles de la Historia')),
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: isMobile
-                ? ListView(children: [...leftColumn, const SizedBox(height: 24), ...rightColumn])
-                : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 12, child: ListView(children: leftColumn)),
-                const SizedBox(width: 24),
-                Expanded(flex: 18, child: ListView(children: rightColumn)),
-              ],
+          appBar: AppBar(
+            title: const Text('Detalles de la Historia'),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: palette.appBarGradient,
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
             ),
+          ),
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: palette.backgroundGradient,
+                      stops: const [0.0, 0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0.0, -0.6),
+                        radius: 1.2,
+                        colors: [Colors.black.withOpacity(0.06), Colors.transparent],
+                        stops: const [0.0, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: isMobile
+                    ? ListView(children: [...leftColumn, const SizedBox(height: 24), ...rightColumn])
+                    : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 12, child: ListView(children: leftColumn)),
+                    const SizedBox(width: 24),
+                    Expanded(flex: 18, child: ListView(children: rightColumn)),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -693,3 +786,24 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 }
 
+// Paleta solo para estilo
+class _PaperPalette {
+  final BuildContext context;
+  _PaperPalette._(this.context);
+  static _PaperPalette of(BuildContext context) => _PaperPalette._(context);
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Color get paper => isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
+  Color get edge => isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
+  Color get ink => isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
+  Color get inkMuted => isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
+  Color get ribbon => isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
+  Color get onRibbon => Colors.white;
+
+  List<Color> get backgroundGradient => isDark
+      ? [const Color(0xFF2F2821), const Color(0xFF3A3027), const Color(0xFF2C261F)]
+      : [const Color(0xFFF6ECD7), const Color(0xFFF0E1C8), const Color(0xFFE8D6B8)];
+  List<Color> get appBarGradient => isDark
+      ? [const Color(0xFF3B3229), const Color(0xFF362E25)]
+      : [const Color(0xFFF7EBD5), const Color(0xFFF0E1C8)];
+}

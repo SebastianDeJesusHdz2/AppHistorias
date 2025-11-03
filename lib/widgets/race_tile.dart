@@ -1,3 +1,4 @@
+// lib/widgets/race_tile.dart
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -14,9 +15,8 @@ class RaceTile extends StatelessWidget {
     if (img == null || img.isEmpty) {
       return const Icon(Icons.group_work, size: 36);
     }
-    final isBase64 = img.length > 100 &&
-        !img.startsWith('http') &&
-        !img.contains(Platform.pathSeparator);
+    final isBase64 =
+        img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
 
     if (isBase64) {
       return ClipRRect(
@@ -56,9 +56,8 @@ class RaceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fieldsSummary = race.fields.isEmpty
-        ? 'Sin características'
-        : race.fields.map((f) => f.label).take(3).join(' • ');
+    final fieldsSummary =
+    race.fields.isEmpty ? 'Sin características' : race.fields.map((f) => f.label).take(3).join(' • ');
 
     return ListTile(
       leading: _buildRaceImage(),
@@ -69,6 +68,3 @@ class RaceTile extends StatelessWidget {
     );
   }
 }
-
-
-

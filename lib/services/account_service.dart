@@ -19,7 +19,7 @@ class SignInResult {
 }
 
 class AccountService with ChangeNotifier {
-  static const String _webServerClientId = '138921401527-i5gclqsj4qsajktbqo68mv7c910f3h84.apps.googleusercontent.com'; // reemplaza
+  static const String _webServerClientId = '138921401527-84edkugl561ulv8re3kb3ea6n85oku25.apps.googleusercontent.com'; // reemplaza
 
   String authorDescription = '';
   String? photoPath;

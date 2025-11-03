@@ -41,22 +41,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveApiKey() async {
     await LocalStorageService.saveApiKey(apiKeyController.text.trim());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key guardada localmente.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('API key guardada localmente.')),
+    );
     Navigator.pop(context, true);
   }
 
   Future<bool> _confirm(String title, String message) async {
+    final palette = _PaperPalette.of(context);
     return await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        backgroundColor: palette.paper,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: TextStyle(color: palette.ink)),
+        content: Text(message, style: TextStyle(color: palette.inkMuted, height: 1.25)),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continuar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancelar', style: TextStyle(color: palette.ink)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: palette.waxSeal),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Continuar'),
+          ),
         ],
       ),
-    ) ?? false;
+    ) ??
+        false;
   }
 
   Future<void> _clearCachesOnly() async {
@@ -71,7 +85,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
     setState(() => apiKeyController.clear());
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cachés limpiadas. Historias conservadas.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cachés limpiadas. Historias conservadas.')),
+    );
     Navigator.pop(context, true);
   }
 
@@ -113,140 +129,218 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final palette = _PaperPalette.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Configuración')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-        padding: const EdgeInsets.only(bottom: 24),
+      // Fondo estilo pergamino
+      body: Stack(
         children: [
-          // Nuevo: solo acceso a la configuración de perfil
-          const _SectionTitle('Perfil'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text('Editar perfil del autor'),
-                subtitle: const Text('Foto, nombre (de Google) y descripción'),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
-                onTap: () => Navigator.of(context).pushNamed('/account'),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: palette.backgroundGradient,
+                  stops: const [0.0, 0.5, 1.0],
+                ),
               ),
             ),
           ),
-
-          const _SectionTitle('API externa'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: apiKeyController,
-                      obscureText: _hideKey,
-                      enableSuggestions: false,
-                      autocorrect: false,
-                      decoration: InputDecoration(
-                        labelText: 'API key',
-                        helperText: 'Se guarda localmente con Hive. Puedes limpiarla abajo.',
-                        prefixIcon: const Icon(Icons.vpn_key),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _hideKey = !_hideKey),
-                          icon: Icon(_hideKey ? Icons.visibility_off : Icons.visibility),
-                        ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _saveApiKey,
-                            icon: const Icon(Icons.save_alt_rounded),
-                            label: const Text('Guardar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => setState(() => apiKeyController.clear()),
-                            icon: const Icon(Icons.cleaning_services_outlined),
-                            label: const Text('Limpiar campo'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0.0, -0.6),
+                    radius: 1.2,
+                    colors: [
+                      Colors.black.withOpacity(0.06),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 1.0],
+                  ),
                 ),
               ),
             ),
           ),
 
-          const _SectionTitle('Preferencias'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: Column(
-                children: [
-                  SwitchListTile.adaptive(
-                    title: const Text('Mostrar consejo de borrado'),
-                    value: _showDeleteHint,
-                    onChanged: _toggleShowDeleteHint,
-                    subtitle: const Text('“Desliza hacia la izquierda para eliminar”'),
-                    secondary: const Icon(Icons.swipe_left_alt_rounded),
-                  ),
-                  const Divider(height: 0),
-                  SwitchListTile.adaptive(
-                    title: const Text('Confirmar antes de eliminar'),
-                    value: _confirmBeforeDelete,
-                    onChanged: _toggleConfirmBeforeDelete,
-                    subtitle: const Text('Diálogo de confirmación antes de borrar'),
-                    secondary: const Icon(Icons.warning_amber_rounded),
-                  ),
-                ],
+          // Contenido
+          Column(
+            children: [
+              _PaperTopBar(
+                title: 'Configuración',
+                palette: palette,
               ),
-            ),
-          ),
-
-          const _SectionTitle('Datos locales'),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.cleaning_services_rounded, color: Colors.teal),
-                    title: const Text('Borrar cachés (API + imágenes)'),
-                    subtitle: const Text('No elimina historias. Limpia API key y copias de imágenes.'),
-                    trailing: FilledButton(onPressed: _clearCachesOnly, child: const Text('Limpiar')),
-                  ),
-                  const Divider(height: 0),
-                  ListTile(
-                    leading: const Icon(Icons.delete_forever, color: Colors.red),
-                    title: const Text('Borrar todas las historias'),
-                    subtitle: const Text('Acción destructiva. Las historias no se pueden recuperar.'),
-                    trailing: FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: cs.error, foregroundColor: cs.onError),
-                      onPressed: _clearStoriesOnly,
-                      child: const Text('Eliminar'),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ListView(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  children: [
+                    _SectionTitle('Perfil', palette: palette),
+                    _PaperCard(
+                      palette: palette,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: ListTile(
+                        leading: Icon(Icons.person, color: palette.ink),
+                        title: Text('Editar perfil del autor',
+                            style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
+                        subtitle: Text('Foto, nombre (de Google) y descripción',
+                            style: TextStyle(color: palette.inkMuted)),
+                        trailing: Icon(Icons.arrow_forward_ios_rounded,
+                            size: 18, color: palette.inkMuted),
+                        onTap: () => Navigator.of(context).pushNamed('/account'),
+                      ),
                     ),
-                  ),
-                ],
+
+                    _SectionTitle('API externa', palette: palette),
+                    _PaperCard(
+                      palette: palette,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: apiKeyController,
+                            obscureText: _hideKey,
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            style: TextStyle(color: palette.ink),
+                            decoration: InputDecoration(
+                              labelText: 'API key',
+                              labelStyle: TextStyle(color: palette.inkMuted),
+                              helperText:
+                              'Se guarda localmente con Hive. Puedes limpiarla abajo.',
+                              helperStyle: TextStyle(color: palette.inkMuted),
+                              prefixIcon: Icon(Icons.vpn_key, color: palette.inkMuted),
+                              suffixIcon: IconButton(
+                                onPressed: () => setState(() => _hideKey = !_hideKey),
+                                icon: Icon(
+                                  _hideKey ? Icons.visibility_off : Icons.visibility,
+                                  color: palette.inkMuted,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: palette.paper.withOpacity(0.7),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: palette.edge),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: palette.ribbon, width: 2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: palette.ribbon,
+                                    foregroundColor: palette.onRibbon,
+                                  ),
+                                  onPressed: _saveApiKey,
+                                  icon: const Icon(Icons.save_alt_rounded),
+                                  label: const Text('Guardar'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: palette.edge),
+                                    foregroundColor: palette.ink,
+                                  ),
+                                  onPressed: () => setState(() => apiKeyController.clear()),
+                                  icon: const Icon(Icons.cleaning_services_outlined),
+                                  label: const Text('Limpiar campo'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    _SectionTitle('Preferencias', palette: palette),
+                    _PaperCard(
+                      palette: palette,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          SwitchListTile.adaptive(
+                            title: Text('Mostrar consejo de borrado',
+                                style: TextStyle(color: palette.ink)),
+                            value: _showDeleteHint,
+                            onChanged: _toggleShowDeleteHint,
+                            subtitle: Text('“Desliza hacia la izquierda para eliminar”',
+                                style: TextStyle(color: palette.inkMuted)),
+                            secondary: Icon(Icons.swipe_left_alt_rounded,
+                                color: palette.inkMuted),
+                          ),
+                          Divider(height: 0, color: palette.edge),
+                          SwitchListTile.adaptive(
+                            title: Text('Confirmar antes de eliminar',
+                                style: TextStyle(color: palette.ink)),
+                            value: _confirmBeforeDelete,
+                            onChanged: _toggleConfirmBeforeDelete,
+                            subtitle: Text('Diálogo de confirmación antes de borrar',
+                                style: TextStyle(color: palette.inkMuted)),
+                            secondary: Icon(Icons.warning_amber_rounded,
+                                color: palette.inkMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    _SectionTitle('Datos locales', palette: palette),
+                    _PaperCard(
+                      palette: palette,
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.cleaning_services_rounded,
+                                color: Colors.teal),
+                            title: Text('Borrar cachés (API + imágenes)',
+                                style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
+                            subtitle: Text(
+                                'No elimina historias. Limpia API key y copias de imágenes.',
+                                style: TextStyle(color: palette.inkMuted)),
+                            trailing: FilledButton(
+                              onPressed: _clearCachesOnly,
+                              child: const Text('Limpiar'),
+                            ),
+                          ),
+                          Divider(height: 0, color: palette.edge),
+                          ListTile(
+                            leading:
+                            const Icon(Icons.delete_forever, color: Colors.red),
+                            title: Text('Borrar todas las historias',
+                                style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
+                            subtitle: Text(
+                                'Acción destructiva. Las historias no se pueden recuperar.',
+                                style: TextStyle(color: palette.inkMuted)),
+                            trailing: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: palette.waxSeal,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: _clearStoriesOnly,
+                              child: const Text('Eliminar'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -254,15 +348,145 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
+// ---------- Widgets de estilo papel ----------
+
+class _PaperTopBar extends StatelessWidget {
+  final String title;
+  final _PaperPalette palette;
+  const _PaperTopBar({required this.title, required this.palette});
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-      child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+    return Container(
+      padding: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: palette.appBarGradient,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        border: Border(bottom: BorderSide(color: palette.edge, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(Icons.arrow_back_rounded, color: palette.ink),
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: palette.ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
+class _PaperCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? margin;
+  final EdgeInsetsGeometry? padding;
+  final _PaperPalette palette;
+  const _PaperCard({
+    required this.child,
+    required this.palette,
+    this.margin,
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin ?? EdgeInsets.zero,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: palette.paper,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.edge, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  final _PaperPalette palette;
+  const _SectionTitle(this.text, {required this.palette});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: palette.ink,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+// ------ Paleta pergamino (igual que en Home) ------
+class _PaperPalette {
+  final BuildContext context;
+  _PaperPalette._(this.context);
+  static _PaperPalette of(BuildContext context) => _PaperPalette._(context);
+
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  // Colores principales
+  Color get paper => isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
+  Color get edge => isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
+  Color get ink => isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
+  Color get inkMuted => isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
+
+  // Cinta / botones principales
+  Color get ribbon => isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
+  Color get onRibbon => Colors.white;
+
+  // “Sello de cera” para acciones destructivas
+  Color get waxSeal => isDark ? const Color(0xFF7C2D2D) : const Color(0xFFA93A3A);
+
+  // Gradientes base
+  List<Color> get backgroundGradient => isDark
+      ? [const Color(0xFF2F2821), const Color(0xFF3A3027), const Color(0xFF2C261F)]
+      : [const Color(0xFFF6ECD7), const Color(0xFFF0E1C8), const Color(0xFFE8D6B8)];
+
+  List<Color> get appBarGradient => isDark
+      ? [const Color(0xFF3B3229), const Color(0xFF362E25)]
+      : [const Color(0xFFF7EBD5), const Color(0xFFF0E1C8)];
+}

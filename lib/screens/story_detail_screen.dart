@@ -193,7 +193,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     out = out.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
     out = out.replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_|_$'), '');
     return out;
-  } // [web:72][web:73]
+  }
 
   List<RaceFieldDef> _normalizeAndUniq(List<RaceFieldDef> src) {
     final seen = <String>{};
@@ -212,7 +212,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       result.add(RaceFieldDef(key: key, label: label, type: f.type));
     }
     return result;
-  } // [web:72][web:73]
+  }
 
   // ========= Crear / editar entidades =========
   Future<void> _crearRaza() async {
@@ -234,10 +234,19 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
       builder: (ctx) {
+        // Controladores ESTABLES (no se recrean en cada build)
         final nameCtrl = TextEditingController(text: race.name);
         final descCtrl = TextEditingController(text: race.description);
         String? tempImage = race.imagePath;
+        // Copia mutable local de fields
         final fields = List<RaceFieldDef>.from(race.fields);
+        // Mapa de controladores por índice
+        final labelCtrls = <int, TextEditingController>{};
+        final keyCtrls = <int, TextEditingController>{};
+        for (var i = 0; i < fields.length; i++) {
+          labelCtrls[i] = TextEditingController(text: fields[i].label);
+          keyCtrls[i] = TextEditingController(text: fields[i].key);
+        }
 
         return Padding(
           padding: EdgeInsets.only(
@@ -248,11 +257,38 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           ),
           child: StatefulBuilder(
             builder: (ctx2, setModal) {
-              void addField() => setModal(() =>
-                  fields.add(RaceFieldDef(key: '', label: '', type: RaceFieldType.text)));
-              void removeField(int i) => setModal(() => fields.removeAt(i));
+              void addField() {
+                setModal(() {
+                  fields.add(RaceFieldDef(key: '', label: '', type: RaceFieldType.text));
+                  final i = fields.length - 1;
+                  labelCtrls[i] = TextEditingController();
+                  keyCtrls[i] = TextEditingController();
+                });
+              }
+
+              void removeField(int i) {
+                setModal(() {
+                  fields.removeAt(i);
+                  labelCtrls.remove(i);
+                  keyCtrls.remove(i);
+                  // Reindexar controladores para mantener consistencia
+                  final newLabel = <int, TextEditingController>{};
+                  final newKey = <int, TextEditingController>{};
+                  for (var j = 0; j < fields.length; j++) {
+                    newLabel[j] = labelCtrls[j] ?? TextEditingController(text: fields[j].label);
+                    newKey[j] = keyCtrls[j] ?? TextEditingController(text: fields[j].key);
+                  }
+                  labelCtrls
+                    ..clear()
+                    ..addAll(newLabel);
+                  keyCtrls
+                    ..clear()
+                    ..addAll(newKey);
+                });
+              }
 
               return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -278,6 +314,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: nameCtrl,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
                     ),
                     const SizedBox(height: 10),
@@ -294,63 +331,66 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         TextButton.icon(onPressed: addField, icon: const Icon(Icons.add), label: const Text('Agregar')),
                       ],
                     ),
-                    ...fields.asMap().entries.map((e) {
-                      final i = e.key;
-                      final f = e.value;
-                      final keyCtrl = TextEditingController(text: f.key);
-                      final labelCtrl = TextEditingController(text: f.label);
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextField(
-                                      controller: labelCtrl,
-                                      decoration: const InputDecoration(
-                                          labelText: 'Etiqueta', border: OutlineInputBorder()),
-                                      onChanged: (v) => f.label = v,
+                    ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: fields.length,
+                      itemBuilder: (_, i) {
+                        final f = fields[i];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: labelCtrls[i],
+                                        textInputAction: TextInputAction.next,
+                                        decoration: const InputDecoration(
+                                            labelText: 'Etiqueta', border: OutlineInputBorder()),
+                                        onChanged: (v) => f.label = v,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextField(
-                                      controller: keyCtrl,
-                                      decoration: const InputDecoration(
-                                          labelText: 'Clave (opcional)', border: OutlineInputBorder()),
-                                      onChanged: (v) => f.key = v,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: keyCtrls[i],
+                                        decoration: const InputDecoration(
+                                            labelText: 'Clave (opcional)', border: OutlineInputBorder()),
+                                        onChanged: (v) => f.key = v,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  const Text('Tipo:'),
-                                  const SizedBox(width: 10),
-                                  DropdownButton<RaceFieldType>(
-                                    value: f.type,
-                                    onChanged: (v) => v != null ? setModal(() => f.type = v) : null,
-                                    items: const [
-                                      DropdownMenuItem(value: RaceFieldType.text, child: Text('Texto')),
-                                      DropdownMenuItem(value: RaceFieldType.number, child: Text('Número')),
-                                      DropdownMenuItem(value: RaceFieldType.boolean, child: Text('Sí/No')),
-                                    ],
-                                  ),
-                                  const Spacer(),
-                                  IconButton(
-                                      onPressed: () => removeField(i),
-                                      icon: const Icon(Icons.delete_forever, color: Colors.red)),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const Text('Tipo:'),
+                                    const SizedBox(width: 10),
+                                    DropdownButton<RaceFieldType>(
+                                      value: f.type,
+                                      onChanged: (v) => v != null ? setModal(() => f.type = v) : null,
+                                      items: const [
+                                        DropdownMenuItem(value: RaceFieldType.text, child: Text('Texto')),
+                                        DropdownMenuItem(value: RaceFieldType.number, child: Text('Número')),
+                                        DropdownMenuItem(value: RaceFieldType.boolean, child: Text('Sí/No')),
+                                      ],
+                                    ),
+                                    const Spacer(),
+                                    IconButton(
+                                        onPressed: () => removeField(i),
+                                        icon: const Icon(Icons.delete_forever, color: Colors.red)),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    }),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -448,6 +488,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           child: StatefulBuilder(
             builder: (ctx2, setModal) {
               return SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -467,9 +508,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder())),
+                    TextField(
+                      controller: nameCtrl,
+                      textInputAction: TextInputAction.next,
+                      decoration: const InputDecoration(labelText: 'Nombre', border: OutlineInputBorder()),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder())),
+                    TextField(
+                      controller: descCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Descripción', border: OutlineInputBorder()),
+                    ),
                     const SizedBox(height: 12),
                     InputDecorator(
                       decoration: const InputDecoration(labelText: 'Raza', border: OutlineInputBorder()),
@@ -723,6 +772,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 700;
         return Scaffold(
+          // Para que el contenido se acomode al teclado
+          resizeToAvoidBottomInset: true,
           appBar: AppBar(
             title: const Text('Detalles de la Historia'),
             elevation: 0,

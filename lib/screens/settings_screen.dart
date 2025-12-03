@@ -12,11 +12,15 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final apiKeyController = TextEditingController();
+
   bool _loading = true;
   bool _hideKey = true;
 
   bool _showDeleteHint = true;
   bool _confirmBeforeDelete = true;
+
+  // Nuevo: indica si ya hay una API key guardada en el dispositivo
+  bool _hasStoredApiKey = false;
 
   @override
   void initState() {
@@ -25,13 +29,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _init() async {
+    // OJO: aquí solo comprobamos si existe, no la mostramos
     final key = await LocalStorageService.getApiKey();
-    final showHint = await LocalStorageService.getPrefBool('showDeleteHint') ?? true;
-    final confirmDel = await LocalStorageService.getPrefBool('confirmBeforeDelete') ?? true;
+    final showHint =
+        await LocalStorageService.getPrefBool('showDeleteHint') ?? true;
+    final confirmDel =
+        await LocalStorageService.getPrefBool('confirmBeforeDelete') ?? true;
 
     if (!mounted) return;
     setState(() {
-      apiKeyController.text = key ?? '';
+      _hasStoredApiKey = (key != null && key.isNotEmpty);
       _showDeleteHint = showHint;
       _confirmBeforeDelete = confirmDel;
       _loading = false;
@@ -39,11 +46,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveApiKey() async {
-    await LocalStorageService.saveApiKey(apiKeyController.text.trim());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('API key guardada localmente.')),
-    );
+    // Nunca hacemos print de la API key
+    final value = apiKeyController.text.trim();
+
+    if (value.isEmpty) {
+      // Campo vacío: se interpreta como “eliminar API key”
+      await LocalStorageService.clearApiKeyBox();
+      if (!mounted) return;
+      setState(() {
+        _hasStoredApiKey = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('API key eliminada de este dispositivo.'),
+        ),
+      );
+    } else {
+      // Guardar / reemplazar API key
+      await LocalStorageService.saveApiKey(value);
+      if (!mounted) return;
+      setState(() {
+        _hasStoredApiKey = true;
+        apiKeyController.clear(); // limpiamos el campo después de guardar
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('API key guardada de forma segura en este dispositivo.'),
+        ),
+      );
+    }
+
+    // Cerramos la pantalla avisando al caller de que hubo cambios
     Navigator.pop(context, true);
   }
 
@@ -53,17 +86,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: palette.paper,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(title, style: TextStyle(color: palette.ink)),
-        content: Text(message, style: TextStyle(color: palette.inkMuted, height: 1.25)),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        content: Text(message,
+            style:
+            TextStyle(color: palette.inkMuted, height: 1.25)),
+        actionsPadding:
+        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancelar', style: TextStyle(color: palette.ink)),
+            child: Text('Cancelar',
+                style: TextStyle(color: palette.ink)),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: palette.waxSeal),
+            style: FilledButton.styleFrom(
+                backgroundColor: palette.waxSeal),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Continuar'),
           ),
@@ -84,7 +123,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await LocalStorageService.clearImagesDir();
 
     if (!mounted) return;
-    setState(() => apiKeyController.clear());
+    setState(() {
+      apiKeyController.clear();
+      _hasStoredApiKey = false;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Cachés limpiadas. Historias conservadas.')),
     );
@@ -105,7 +147,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await provider.saveAll();
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Historias eliminadas.')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Historias eliminadas.')),
+    );
     Navigator.pop(context, true);
   }
 
@@ -181,56 +225,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SectionTitle('Perfil', palette: palette),
                     _PaperCard(
                       palette: palette,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      margin:
+                      const EdgeInsets.symmetric(horizontal: 16),
                       child: ListTile(
-                        leading: Icon(Icons.person, color: palette.ink),
-                        title: Text('Editar perfil del autor',
-                            style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
-                        subtitle: Text('Foto, nombre (de Google) y descripción',
-                            style: TextStyle(color: palette.inkMuted)),
-                        trailing: Icon(Icons.arrow_forward_ios_rounded,
-                            size: 18, color: palette.inkMuted),
-                        onTap: () => Navigator.of(context).pushNamed('/account'),
+                        leading:
+                        Icon(Icons.person, color: palette.ink),
+                        title: Text(
+                          'Editar perfil del autor',
+                          style: TextStyle(
+                            color: palette.ink,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Foto, nombre (de Google) y descripción',
+                          style:
+                          TextStyle(color: palette.inkMuted),
+                        ),
+                        trailing: Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 18,
+                          color: palette.inkMuted,
+                        ),
+                        onTap: () => Navigator.of(context)
+                            .pushNamed('/account'),
                       ),
                     ),
 
                     _SectionTitle('API externa', palette: palette),
                     _PaperCard(
                       palette: palette,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      margin:
+                      const EdgeInsets.symmetric(horizontal: 16),
                       padding: const EdgeInsets.all(14),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.stretch,
                         children: [
                           TextField(
                             controller: apiKeyController,
                             obscureText: _hideKey,
                             enableSuggestions: false,
                             autocorrect: false,
-                            style: TextStyle(color: palette.ink),
+                            keyboardType:
+                            TextInputType.visiblePassword,
+                            style:
+                            TextStyle(color: palette.ink),
                             decoration: InputDecoration(
                               labelText: 'API key',
-                              labelStyle: TextStyle(color: palette.inkMuted),
-                              helperText:
-                              'Se guarda localmente con Hive. Puedes limpiarla abajo.',
-                              helperStyle: TextStyle(color: palette.inkMuted),
-                              prefixIcon: Icon(Icons.vpn_key, color: palette.inkMuted),
+                              labelStyle: TextStyle(
+                                  color: palette.inkMuted),
+                              helperText: _hasStoredApiKey
+                                  ? 'Ya hay una API key guardada de forma segura. Pega una nueva para reemplazarla o deja el campo vacío y pulsa "Guardar" para eliminarla.'
+                                  : 'Se guardará solo en este dispositivo. No se envía a ningún servidor propio.',
+                              helperStyle: TextStyle(
+                                  color: palette.inkMuted),
+                              prefixIcon: Icon(
+                                Icons.vpn_key,
+                                color: palette.inkMuted,
+                              ),
                               suffixIcon: IconButton(
-                                onPressed: () => setState(() => _hideKey = !_hideKey),
+                                onPressed: () => setState(
+                                        () => _hideKey = !_hideKey),
                                 icon: Icon(
-                                  _hideKey ? Icons.visibility_off : Icons.visibility,
+                                  _hideKey
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                   color: palette.inkMuted,
                                 ),
                               ),
                               filled: true,
-                              fillColor: palette.paper.withOpacity(0.7),
+                              fillColor: palette.paper
+                                  .withOpacity(0.7),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: palette.edge),
+                                borderRadius:
+                                BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: palette.edge),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: palette.ribbon, width: 2),
+                                borderRadius:
+                                BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: palette.ribbon,
+                                    width: 2),
                               ),
                             ),
                           ),
@@ -240,11 +318,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Expanded(
                                 child: FilledButton.icon(
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: palette.ribbon,
-                                    foregroundColor: palette.onRibbon,
+                                    backgroundColor:
+                                    palette.ribbon,
+                                    foregroundColor:
+                                    palette.onRibbon,
                                   ),
                                   onPressed: _saveApiKey,
-                                  icon: const Icon(Icons.save_alt_rounded),
+                                  icon: const Icon(
+                                      Icons.save_alt_rounded),
                                   label: const Text('Guardar'),
                                 ),
                               ),
@@ -252,12 +333,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
-                                    side: BorderSide(color: palette.edge),
-                                    foregroundColor: palette.ink,
+                                    side: BorderSide(
+                                        color: palette.edge),
+                                    foregroundColor:
+                                    palette.ink,
                                   ),
-                                  onPressed: () => setState(() => apiKeyController.clear()),
-                                  icon: const Icon(Icons.cleaning_services_outlined),
-                                  label: const Text('Limpiar campo'),
+                                  onPressed: () => setState(() =>
+                                      apiKeyController.clear()),
+                                  icon: const Icon(Icons
+                                      .cleaning_services_outlined),
+                                  label:
+                                  const Text('Limpiar campo'),
                                 ),
                               ),
                             ],
@@ -269,29 +355,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SectionTitle('Preferencias', palette: palette),
                     _PaperCard(
                       palette: palette,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      margin:
+                      const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
                           SwitchListTile.adaptive(
-                            title: Text('Mostrar consejo de borrado',
-                                style: TextStyle(color: palette.ink)),
+                            title: Text(
+                              'Mostrar consejo de borrado',
+                              style: TextStyle(
+                                  color: palette.ink),
+                            ),
                             value: _showDeleteHint,
                             onChanged: _toggleShowDeleteHint,
-                            subtitle: Text('“Desliza hacia la izquierda para eliminar”',
-                                style: TextStyle(color: palette.inkMuted)),
-                            secondary: Icon(Icons.swipe_left_alt_rounded,
-                                color: palette.inkMuted),
+                            subtitle: Text(
+                              '“Desliza hacia la izquierda para eliminar”',
+                              style: TextStyle(
+                                  color: palette.inkMuted),
+                            ),
+                            secondary: Icon(
+                              Icons.swipe_left_alt_rounded,
+                              color: palette.inkMuted,
+                            ),
                           ),
-                          Divider(height: 0, color: palette.edge),
+                          Divider(
+                              height: 0,
+                              color: palette.edge),
                           SwitchListTile.adaptive(
-                            title: Text('Confirmar antes de eliminar',
-                                style: TextStyle(color: palette.ink)),
+                            title: Text(
+                              'Confirmar antes de eliminar',
+                              style: TextStyle(
+                                  color: palette.ink),
+                            ),
                             value: _confirmBeforeDelete,
-                            onChanged: _toggleConfirmBeforeDelete,
-                            subtitle: Text('Diálogo de confirmación antes de borrar',
-                                style: TextStyle(color: palette.inkMuted)),
-                            secondary: Icon(Icons.warning_amber_rounded,
-                                color: palette.inkMuted),
+                            onChanged:
+                            _toggleConfirmBeforeDelete,
+                            subtitle: Text(
+                              'Diálogo de confirmación antes de borrar',
+                              style: TextStyle(
+                                  color: palette.inkMuted),
+                            ),
+                            secondary: Icon(
+                              Icons.warning_amber_rounded,
+                              color: palette.inkMuted,
+                            ),
                           ),
                         ],
                       ),
@@ -300,35 +406,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SectionTitle('Datos locales', palette: palette),
                     _PaperCard(
                       palette: palette,
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      margin:
+                      const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
                           ListTile(
-                            leading: const Icon(Icons.cleaning_services_rounded,
-                                color: Colors.teal),
-                            title: Text('Borrar cachés (API + imágenes)',
-                                style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
+                            leading: const Icon(
+                              Icons.cleaning_services_rounded,
+                              color: Colors.teal,
+                            ),
+                            title: Text(
+                              'Borrar cachés (API + imágenes)',
+                              style: TextStyle(
+                                color: palette.ink,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             subtitle: Text(
-                                'No elimina historias. Limpia API key y copias de imágenes.',
-                                style: TextStyle(color: palette.inkMuted)),
+                              'No elimina historias. Limpia API key y copias de imágenes.',
+                              style: TextStyle(
+                                  color: palette.inkMuted),
+                            ),
                             trailing: FilledButton(
                               onPressed: _clearCachesOnly,
                               child: const Text('Limpiar'),
                             ),
                           ),
-                          Divider(height: 0, color: palette.edge),
+                          Divider(
+                              height: 0,
+                              color: palette.edge),
                           ListTile(
-                            leading:
-                            const Icon(Icons.delete_forever, color: Colors.red),
-                            title: Text('Borrar todas las historias',
-                                style: TextStyle(color: palette.ink, fontWeight: FontWeight.w600)),
+                            leading: const Icon(
+                              Icons.delete_forever,
+                              color: Colors.red,
+                            ),
+                            title: Text(
+                              'Borrar todas las historias',
+                              style: TextStyle(
+                                color: palette.ink,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                             subtitle: Text(
-                                'Acción destructiva. Las historias no se pueden recuperar.',
-                                style: TextStyle(color: palette.inkMuted)),
+                              'Acción destructiva. Las historias no se pueden recuperar.',
+                              style: TextStyle(
+                                  color: palette.inkMuted),
+                            ),
                             trailing: FilledButton(
                               style: FilledButton.styleFrom(
-                                backgroundColor: palette.waxSeal,
-                                foregroundColor: Colors.white,
+                                backgroundColor:
+                                palette.waxSeal,
+                                foregroundColor:
+                                Colors.white,
                               ),
                               onPressed: _clearStoriesOnly,
                               child: const Text('Eliminar'),
@@ -365,7 +494,9 @@ class _PaperTopBar extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
-        border: Border(bottom: BorderSide(color: palette.edge, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: palette.edge, width: 1),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -469,24 +600,44 @@ class _PaperPalette {
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
 
   // Colores principales
-  Color get paper => isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
-  Color get edge => isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
-  Color get ink => isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
-  Color get inkMuted => isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
+  Color get paper =>
+      isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
+  Color get edge =>
+      isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
+  Color get ink =>
+      isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
+  Color get inkMuted =>
+      isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
 
   // Cinta / botones principales
-  Color get ribbon => isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
+  Color get ribbon =>
+      isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
   Color get onRibbon => Colors.white;
 
   // “Sello de cera” para acciones destructivas
-  Color get waxSeal => isDark ? const Color(0xFF7C2D2D) : const Color(0xFFA93A3A);
+  Color get waxSeal =>
+      isDark ? const Color(0xFF7C2D2D) : const Color(0xFFA93A3A);
 
   // Gradientes base
   List<Color> get backgroundGradient => isDark
-      ? [const Color(0xFF2F2821), const Color(0xFF3A3027), const Color(0xFF2C261F)]
-      : [const Color(0xFFF6ECD7), const Color(0xFFF0E1C8), const Color(0xFFE8D6B8)];
+      ? [
+    const Color(0xFF2F2821),
+    const Color(0xFF3A3027),
+    const Color(0xFF2C261F),
+  ]
+      : [
+    const Color(0xFFF6ECD7),
+    const Color(0xFFF0E1C8),
+    const Color(0xFFE8D6B8),
+  ];
 
   List<Color> get appBarGradient => isDark
-      ? [const Color(0xFF3B3229), const Color(0xFF362E25)]
-      : [const Color(0xFFF7EBD5), const Color(0xFFF0E1C8)];
+      ? [
+    const Color(0xFF3B3229),
+    const Color(0xFF362E25),
+  ]
+      : [
+    const Color(0xFFF7EBD5),
+    const Color(0xFFF0E1C8),
+  ];
 }

@@ -1,5 +1,5 @@
-// lib/screens/pdf_preview_screen.dart
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -7,10 +7,11 @@ import 'package:printing/printing.dart';
 
 import '../models/story.dart';
 import '../models/chapter.dart';
+import 'pdf_preview_view.dart';
 
 class PdfPreviewScreen extends StatelessWidget {
   final Story story;
-  final int? chapterIndex; // si se pasa, renderiza solo ese capítulo con numeración real
+  final int? chapterIndex;
 
   const PdfPreviewScreen({
     super.key,
@@ -26,23 +27,35 @@ class PdfPreviewScreen extends StatelessWidget {
     );
   }
 
-  // Genera el contenido de capítulos.
-  // baseIndex indica desde qué índice global numerar (0-based).
-  List<pw.Widget> _buildChapterWidgets(List<Chapter> chapters, {int baseIndex = 0}) {
+  List<pw.Widget> _buildChapterWidgets(
+      List<Chapter> chapters, {
+        int baseIndex = 0,
+      }) {
     final widgets = <pw.Widget>[];
 
     for (int i = 0; i < chapters.length; i++) {
       final ch = chapters[i];
-      final ordinal = baseIndex + i + 1; // numeración real basada en el orden global
-      final capTitle =
-      ch.title.trim().isEmpty ? 'Capítulo $ordinal' : 'Capítulo $ordinal. ${ch.title.trim()}';
+      final ordinal = baseIndex + i + 1;
+      final capTitle = ch.title.trim().isEmpty
+          ? 'Capítulo $ordinal'
+          : 'Capítulo $ordinal. ${ch.title.trim()}';
 
-      widgets.add(pw.Header(level: 1, text: capTitle));
+      widgets.add(
+        pw.Header(
+          level: 1,
+          text: capTitle,
+        ),
+      );
 
-      final content = ch.content.trim().isEmpty ? '(Sin contenido)' : ch.content.trim();
+      final content =
+      ch.content.trim().isEmpty ? '(Sin contenido)' : ch.content.trim();
       for (final line in content.split('\n')) {
         final t = line.trim();
-        widgets.add(t.isEmpty ? pw.SizedBox(height: 6) : pw.Paragraph(text: t));
+        widgets.add(
+          t.isEmpty
+              ? pw.SizedBox(height: 6)
+              : pw.Paragraph(text: t),
+        );
       }
 
       widgets.add(pw.SizedBox(height: 10));
@@ -59,14 +72,16 @@ class PdfPreviewScreen extends StatelessWidget {
     final theme = await _pdfTheme();
     final pdf = pw.Document();
 
-    // Si chapterIndex es nulo se renderiza toda la historia; si no, sólo ese capítulo.
     final isSingle = chapterIndex != null;
     final chapters = isSingle
-        ? [story.chapters[chapterIndex!.clamp(0, story.chapters.length - 1)]]
+        ? [
+      story.chapters[
+      chapterIndex!.clamp(0, story.chapters.length - 1)],
+    ]
         : story.chapters;
 
-    // baseIndex refleja la posición real del primer capítulo que se imprime.
-    final baseIndex = isSingle ? chapterIndex!.clamp(0, story.chapters.length - 1) : 0;
+    final baseIndex =
+    isSingle ? chapterIndex!.clamp(0, story.chapters.length - 1) : 0;
 
     pdf.addPage(
       pw.MultiPage(
@@ -77,19 +92,26 @@ class PdfPreviewScreen extends StatelessWidget {
           textDirection: pw.TextDirection.ltr,
           orientation: pw.PageOrientation.portrait,
         ),
-        // Encabezado solo en la primera página para evitar duplicados.
         header: (ctx) => ctx.pageNumber == 1
             ? pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              story.title.trim().isEmpty ? 'Historia' : story.title.trim(),
-              style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+              story.title.trim().isEmpty
+                  ? 'Historia'
+                  : story.title.trim(),
+              style: pw.TextStyle(
+                fontSize: 20,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
             if (story.description.trim().isNotEmpty)
               pw.Text(
                 story.description.trim(),
-                style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+                style: const pw.TextStyle(
+                  fontSize: 12,
+                  color: PdfColors.grey700,
+                ),
               ),
             pw.SizedBox(height: 6),
             pw.Divider(),
@@ -100,11 +122,16 @@ class PdfPreviewScreen extends StatelessWidget {
           alignment: pw.Alignment.centerRight,
           child: pw.Text(
             'Página ${ctx.pageNumber} de ${ctx.pagesCount}',
-            style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+            style: const pw.TextStyle(
+              fontSize: 10,
+              color: PdfColors.grey600,
+            ),
           ),
         ),
-        // MultiPage fluye todo el contenido y respeta la paginación automática.
-        build: (ctx) => _buildChapterWidgets(chapters, baseIndex: baseIndex),
+        build: (ctx) => _buildChapterWidgets(
+          chapters,
+          baseIndex: baseIndex,
+        ),
       ),
     );
 
@@ -113,143 +140,14 @@ class PdfPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = _PaperPalette.of(context);
     final isSingle = chapterIndex != null;
-    final title = isSingle ? 'Vista previa PDF (Capítulo)' : 'Vista previa PDF (Historia)';
+    final title =
+    isSingle ? 'Vista previa PDF (Capítulo)' : 'Vista previa PDF (Historia)';
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Fondo pergamino
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: palette.backgroundGradient,
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-          // Viñeta radial
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(0.0, -0.6),
-                    radius: 1.2,
-                    colors: [Colors.black.withOpacity(0.06), Colors.transparent],
-                    stops: const [0.0, 1.0],
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          Column(
-            children: [
-              _PaperTopBar(title: title, palette: palette),
-              Expanded(
-                child: PdfPreview(
-                  build: (format) => _buildDocument(format), // Integración con printing
-                  canChangePageFormat: true,
-                  canChangeOrientation: true,
-                  allowPrinting: true,
-                  allowSharing: true,
-                  initialPageFormat: PdfPageFormat.a4,
-                  pdfFileName: isSingle ? 'capitulo.pdf' : 'historia.pdf',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+    return PdfPreviewView(
+      title: title,
+      isSingleChapter: isSingle,
+      buildDocument: _buildDocument,
     );
   }
-}
-
-// ---------- Widgets y paleta “papel” ----------
-class _PaperTopBar extends StatelessWidget {
-  final String title;
-  final _PaperPalette palette;
-  const _PaperTopBar({required this.title, required this.palette});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(top: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: palette.appBarGradient,
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        border: Border(bottom: BorderSide(color: palette.edge, width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: Icon(Icons.arrow_back_rounded, color: palette.ink),
-              ),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    color: palette.ink,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PaperPalette {
-  final BuildContext context;
-  _PaperPalette._(this.context);
-  static _PaperPalette of(BuildContext context) => _PaperPalette._(context);
-
-  bool get isDark => Theme.of(context).brightness == Brightness.dark;
-
-  // Colores principales
-  Color get paper => isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
-  Color get edge => isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
-  Color get ink => isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
-  Color get inkMuted => isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
-
-  // Cinta / primario
-  Color get ribbon => isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
-  Color get onRibbon => Colors.white;
-
-  // Gradientes
-  List<Color> get backgroundGradient => isDark
-      ? [const Color(0xFF2F2821), const Color(0xFF3A3027), const Color(0xFF2C261F)]
-      : [const Color(0xFFF6ECD7), const Color(0xFFF0E1C8), const Color(0xFFE8D6B8)];
-
-  List<Color> get appBarGradient => isDark
-      ? [const Color(0xFF3B3229), const Color(0xFF362E25)]
-      : [const Color(0xFFF7EBD5), const Color(0xFFF0E1C8)];
 }

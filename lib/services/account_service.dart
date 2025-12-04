@@ -14,24 +14,27 @@ import 'package:apphistorias/services/local_storage_service.dart';
 
 class SignInResult {
   final bool ok;
-  final String? error; // códigos típicos: 10, 12500 o null si canceló
+  final String? error;
   const SignInResult(this.ok, this.error);
 }
 
 class AccountService with ChangeNotifier {
-  static const String _webServerClientId = '138921401527-84edkugl561ulv8re3kb3ea6n85oku25.apps.googleusercontent.com'; // reemplaza
+  static const String _webServerClientId =
+      '138921401527-84edkugl561ulv8re3kb3ea6n85oku25.apps.googleusercontent.com';
 
   String authorDescription = '';
   String? photoPath;
   String customUserName = '';
-  Uint8List? get photoBytes =>
-      (photoPath != null && !kIsWeb && File(photoPath!).existsSync())
-          ? File(photoPath!).readAsBytesSync()
-          : null;
+
+  Uint8List? get photoBytes {
+    if (photoPath == null || kIsWeb) return null;
+    final file = File(photoPath!);
+    return file.existsSync() ? file.readAsBytesSync() : null;
+  }
 
   late final GoogleSignIn _gsi = GoogleSignIn(
     serverClientId: _webServerClientId,
-    scopes: const ['email', 'profile'], // Drive se pedirá después
+    scopes: const ['email', 'profile'],
   );
 
   GoogleSignInAccount? _account;
@@ -41,7 +44,8 @@ class AccountService with ChangeNotifier {
 
   String get displayName {
     if (customUserName.trim().isNotEmpty) return customUserName.trim();
-    if ((googleDisplayName ?? '').trim().isNotEmpty) return googleDisplayName!.trim();
+    final gName = (googleDisplayName ?? '').trim();
+    if (gName.isNotEmpty) return gName;
     return 'Sin sesión';
   }
 
@@ -56,12 +60,16 @@ class AccountService with ChangeNotifier {
     authorDescription = (_box!.get(_descKey) as String?) ?? '';
     photoPath = _box!.get(_photoKey) as String?;
     customUserName = (_box!.get(_nameKey) as String?) ?? '';
+
     try {
       _account = await _gsi.signInSilently();
-      if (_account != null) await _ensureDriveScope();
+      if (_account != null) {
+        await _ensureDriveScope();
+      }
     } catch (e) {
       debugPrint('signInSilently error: $e');
     }
+
     notifyListeners();
   }
 
@@ -82,6 +90,7 @@ class AccountService with ChangeNotifier {
     final XFile? file =
     await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null) return;
+
     final savedPath = await LocalStorageService.copyImageToAppDir(file.path);
     photoPath = savedPath;
     await _box?.put(_photoKey, savedPath);
@@ -96,7 +105,8 @@ class AccountService with ChangeNotifier {
 
   Future<void> _ensureDriveScope() async {
     try {
-      await _gsi.requestScopes(const ['https://www.googleapis.com/auth/drive.file']);
+      await _gsi
+          .requestScopes(const ['https://www.googleapis.com/auth/drive.file']);
     } catch (e) {
       debugPrint('requestScopes error: $e');
     }
@@ -104,7 +114,7 @@ class AccountService with ChangeNotifier {
 
   Future<SignInResult> signInWithGoogle() async {
     try {
-      await _gsi.disconnect(); // limpia estado previo
+      await _gsi.disconnect();
     } catch (_) {}
 
     GoogleSignInAccount? acc;
@@ -113,28 +123,26 @@ class AccountService with ChangeNotifier {
     try {
       acc = await _gsi.signIn();
     } on PlatformException catch (e) {
-      errorCode = '${e.code}';
+      errorCode = e.code;
       debugPrint('signIn PlatformException: code=${e.code}, msg=${e.message}');
-      acc = null;
     } catch (e) {
       debugPrint('signIn error: $e');
-      acc = null;
     }
 
     if (acc == null) {
       try {
         acc = await _gsi.signInSilently();
       } catch (e) {
-        debugPrint('signInSilently after picker error: $e');
+        debugPrint('signInSilently after error: $e');
       }
     }
 
     if (acc == null) {
-      return SignInResult(false, errorCode); // null => cancelado o error (código si hubo)
+      return SignInResult(false, errorCode);
     }
 
     try {
-      await acc.authHeaders; // fuerza token
+      await acc.authHeaders;
     } catch (e) {
       debugPrint('authHeaders error: $e');
     }
@@ -184,7 +192,9 @@ class AccountService with ChangeNotifier {
 class _GoogleAuthClient extends http.BaseClient {
   final Map<String, String> _headers;
   final http.Client _inner = http.Client();
+
   _GoogleAuthClient(this._headers);
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     request.headers.addAll(_headers);

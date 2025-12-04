@@ -1,74 +1,48 @@
-// lib/models/character.dart
+import 'package:uuid/uuid.dart';
+
 class Character {
   String id;
   String name;
-
-  // Campos opcionales básicos
   String? description;
+  String raceId;
   String? imagePath;
-  String? raceId;
 
-  // NUEVOS: para coincidir con CharacterForm
-  String? physicalTraits;
-  String? personality;
-  Map<String, dynamic> customFields;
+  /// Valores de los campos de la raza.
+  /// Clave = `RaceFieldDef.key` de la raza.
+  /// Valor = String / num / bool según el tipo.
+  Map<String, dynamic> attributes;
 
   Character({
-    required this.id,
+    String? id,
     required this.name,
     this.description,
+    required this.raceId,
     this.imagePath,
-    this.raceId,
-    this.physicalTraits,
-    this.personality,
-    Map<String, dynamic>? customFields,
-  }) : customFields = customFields ?? {};
+    Map<String, dynamic>? attributes,
+  })  : id = id ?? const Uuid().v4(),
+        attributes = attributes ?? <String, dynamic>{};
 
-  // Serialización a Map (apta para guardar como JSON en Hive)
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'name': name,
-    'description': description,
-    'imagePath': imagePath,
-    'raceId': raceId,
-    'physicalTraits': physicalTraits,
-    'personality': personality,
-    'customFields': customFields,
-  };
-
-  // Deserialización desde Map
-  factory Character.fromMap(Map<String, dynamic> m) => Character(
-    id: m['id'] as String,
-    name: m['name'] as String,
-    description: m['description'] as String?,
-    imagePath: m['imagePath'] as String?,
-    raceId: m['raceId'] as String?,
-    physicalTraits: m['physicalTraits'] as String?,
-    personality: m['personality'] as String?,
-    customFields: (m['customFields'] as Map?)?.cast<String, dynamic>() ?? {},
-  );
-
-  // (Opcional) utilidad para ediciones
-  Character copyWith({
-    String? id,
-    String? name,
-    String? description,
-    String? imagePath,
-    String? raceId,
-    String? physicalTraits,
-    String? personality,
-    Map<String, dynamic>? customFields,
-  }) {
+  factory Character.fromMap(Map<String, dynamic> map) {
     return Character(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      imagePath: imagePath ?? this.imagePath,
-      raceId: raceId ?? this.raceId,
-      physicalTraits: physicalTraits ?? this.physicalTraits,
-      personality: personality ?? this.personality,
-      customFields: customFields ?? Map<String, dynamic>.from(this.customFields),
+      id: map['id'] as String?,
+      name: map['name'] as String? ?? '',
+      description: map['description'] as String?,
+      raceId: map['raceId'] as String? ?? '',
+      imagePath: map['imagePath'] as String?,
+      attributes: Map<String, dynamic>.from(
+        map['attributes'] as Map? ?? const <String, dynamic>{},
+      ),
     );
   }
-}
 
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'description': description,
+      'raceId': raceId,
+      'imagePath': imagePath,
+      'attributes': attributes,
+    };
+  }
+}

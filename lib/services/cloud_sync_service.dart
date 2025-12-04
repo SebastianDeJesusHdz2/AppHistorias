@@ -1,3 +1,4 @@
+// lib/services/cloud_sync_service.dart
 import 'dart:convert';
 import 'dart:io';
 
@@ -33,10 +34,7 @@ class CloudSyncService {
     if (drive == null) {
       throw Exception('Inicia sesión con Google');
     }
-
-    final q =
-        "name = '$appFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-
+    final q = "name = '$appFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     final res = await drive.files.list(q: q, $fields: 'files(id, name)');
     if (res.files != null && res.files!.isNotEmpty) {
       _folderId = res.files!.first.id;
@@ -53,12 +51,8 @@ class CloudSyncService {
     if (drive == null) {
       throw Exception('Inicia sesión con Google');
     }
-
     await _ensureAppFolder(acc);
-
-    final q =
-        "'$_folderId' in parents and name = '$imagesFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-
+    final q = "'$_folderId' in parents and name = '$imagesFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     final res = await drive.files.list(q: q, $fields: 'files(id, name)');
     if (res.files != null && res.files!.isNotEmpty) {
       _imagesFolderId = res.files!.first.id;
@@ -76,16 +70,12 @@ class CloudSyncService {
     if (drive == null) {
       throw Exception('Inicia sesión con Google');
     }
-
     await _ensureAppFolder(acc);
 
     Future<String?> find(String name) async {
-      final q =
-          "'$_folderId' in parents and name = '$name' and mimeType != 'application/vnd.google-apps.folder' and trashed = false";
+      final q = "'$_folderId' in parents and name = '$name' and mimeType != 'application/vnd.google-apps.folder' and trashed = false";
       final res = await drive.files.list(q: q, $fields: 'files(id, name)');
-      return res.files != null && res.files!.isNotEmpty
-          ? res.files!.first.id
-          : null;
+      return res.files != null && res.files!.isNotEmpty ? res.files!.first.id : null;
     }
 
     _storiesFileId ??= await find(storiesFileName);
@@ -101,27 +91,17 @@ class CloudSyncService {
     if (drive == null) {
       throw Exception('Inicia sesión con Google');
     }
-
     await _ensureHandles(account);
 
-    final storiesJson =
-    jsonEncode(stories.map((s) => s.toMap()).toList());
+    final storiesJson = jsonEncode(stories.map((s) => s.toMap()).toList());
     final storiesBytes = utf8.encode(storiesJson);
-    final mediaStories =
-    gdrive.Media(Stream.value(storiesBytes), storiesBytes.length);
-
+    final mediaStories = gdrive.Media(Stream.value(storiesBytes), storiesBytes.length);
     final fileStories = gdrive.File()
       ..name = storiesFileName
       ..parents = [_folderId!]
       ..mimeType = 'application/json';
-
     if (_storiesFileId == null) {
-      _storiesFileId = (await drive.files.create(
-        fileStories,
-        uploadMedia: mediaStories,
-        $fields: 'id',
-      ))
-          .id;
+      _storiesFileId = (await drive.files.create(fileStories, uploadMedia: mediaStories, $fields: 'id')).id;
     } else {
       await drive.files.update(
         gdrive.File()..mimeType = 'application/json',
@@ -132,9 +112,7 @@ class CloudSyncService {
 
     final profileJson = jsonEncode(account.toProfileJson());
     final profileBytes = utf8.encode(profileJson);
-    final mediaProfile =
-    gdrive.Media(Stream.value(profileBytes), profileBytes.length);
-
+    final mediaProfile = gdrive.Media(Stream.value(profileBytes), profileBytes.length);
     if (_profileFileId == null) {
       _profileFileId = (await drive.files.create(
         gdrive.File()
@@ -153,12 +131,9 @@ class CloudSyncService {
       );
     }
 
-    if (account.photoPath != null &&
-        File(account.photoPath!).existsSync()) {
+    if (account.photoPath != null && File(account.photoPath!).existsSync()) {
       final bytes = File(account.photoPath!).readAsBytesSync();
-      final mediaPng =
-      gdrive.Media(Stream.value(bytes), bytes.length);
-
+      final mediaPng = gdrive.Media(Stream.value(bytes), bytes.length);
       if (_profilePngId == null) {
         _profilePngId = (await drive.files.create(
           gdrive.File()
@@ -194,9 +169,7 @@ class CloudSyncService {
     );
     final existing = <String, String>{};
     for (final f in existingRes.files ?? <gdrive.File>[]) {
-      if (f.id != null && f.name != null) {
-        existing[f.name!] = f.id!;
-      }
+      if (f.id != null && f.name != null) existing[f.name!] = f.id!;
     }
 
     final imagePaths = _collectImagePaths(stories);
@@ -208,20 +181,21 @@ class CloudSyncService {
       final name = p.basename(path);
       final bytes = file.readAsBytesSync();
       final media = gdrive.Media(Stream.value(bytes), bytes.length);
+      final ext = p.extension(name);
+      final mime = _mimeFromExtension(ext);
 
       final String? existingId = existing[name];
-
       if (existingId == null) {
         await drive.files.create(
           gdrive.File()
             ..name = name
             ..parents = [_imagesFolderId!]
-            ..mimeType = _mimeFromExtension(p.extension(name)),
+            ..mimeType = mime,
           uploadMedia: media,
         );
       } else {
         await drive.files.update(
-          gdrive.File()..mimeType = _mimeFromExtension(p.extension(name)),
+          gdrive.File()..mimeType = mime,
           existingId,
           uploadMedia: media,
         );
@@ -235,30 +209,20 @@ class CloudSyncService {
     void collect(dynamic value) {
       if (value is String) {
         final ext = p.extension(value).toLowerCase();
-        if (ext == '.png' ||
-            ext == '.jpg' ||
-            ext == '.jpeg' ||
-            ext == '.webp') {
+        if (ext == '.png' || ext == '.jpg' || ext == '.jpeg' || ext == '.webp') {
           final file = File(value);
-          if (file.existsSync()) {
-            paths.add(value);
-          }
+          if (file.existsSync()) paths.add(value);
         }
       } else if (value is Map) {
-        for (final v in value.values) {
-          collect(v);
-        }
+        for (final v in value.values) collect(v);
       } else if (value is List) {
-        for (final v in value) {
-          collect(v);
-        }
+        for (final v in value) collect(v);
       }
     }
 
     for (final s in stories) {
       collect(s.toMap());
     }
-
     return paths;
   }
 
@@ -267,14 +231,11 @@ class CloudSyncService {
     if (drive == null) {
       throw Exception('Inicia sesión con Google');
     }
-
     await _ensureHandles(account);
 
     Map<String, String> imageNameToLocalPath = {};
-
     if (_imagesFolderId != null) {
-      imageNameToLocalPath =
-      await _downloadStoryImages(account, drive);
+      imageNameToLocalPath = await _downloadStoryImages(account, drive);
     }
 
     if (_storiesFileId != null) {
@@ -283,19 +244,16 @@ class CloudSyncService {
         downloadOptions: gdrive.DownloadOptions.fullMedia,
       ) as gdrive.Media;
 
-      final bytes =
-      await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-      final decoded =
-      jsonDecode(utf8.decode(bytes)) as List<dynamic>;
+      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
+      final decoded = jsonDecode(utf8.decode(bytes));
+      final listDynamic = (decoded as List);
 
-      final rawList = decoded
-          .cast<Map<String, dynamic>>()
+      final listMaps = listDynamic
+          .map((e) => Map<String, dynamic>.from(e as Map))
           .map((m) => _patchImagePathsInMap(m, imageNameToLocalPath))
           .toList();
 
-      final stories =
-      rawList.map((m) => Story.fromMap(m)).toList();
-
+      final stories = listMaps.map((m) => Story.fromMap(m)).toList();
       await LocalStorageService.saveStories(stories);
     }
 
@@ -305,15 +263,11 @@ class CloudSyncService {
         downloadOptions: gdrive.DownloadOptions.fullMedia,
       ) as gdrive.Media;
 
-      final bytes =
-      await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-      final map =
-      jsonDecode(utf8.decode(bytes)) as Map<String, dynamic>;
-
-      await account
-          .setAuthorDescription((map['authorDescription'] as String?) ?? '');
-      await account.setCustomUserName(
-          (map['customUserName'] as String?) ?? '');
+      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
+      final raw = jsonDecode(utf8.decode(bytes));
+      final map = Map<String, dynamic>.from(raw as Map);
+      await account.setAuthorDescription((map['authorDescription'] as String?) ?? '');
+      await account.setCustomUserName((map['customUserName'] as String?) ?? '');
     }
 
     if (_profilePngId != null) {
@@ -322,15 +276,9 @@ class CloudSyncService {
         downloadOptions: gdrive.DownloadOptions.fullMedia,
       ) as gdrive.Media;
 
-      final bytes =
-      await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-
+      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
       final base64Str = base64Encode(bytes);
-      final imgPath = await LocalStorageService.saveBase64ToImage(
-        base64Str,
-        ext: '.png',
-      );
-
+      final imgPath = await LocalStorageService.saveBase64ToImage(base64Str, ext: '.png');
       final box = await Hive.openBox('profile');
       await box.put('photoPath', imgPath);
       account.photoPath = imgPath;
@@ -343,14 +291,12 @@ class CloudSyncService {
       gdrive.DriveApi drive,
       ) async {
     await _ensureImagesFolder(account);
-
     final res = await drive.files.list(
       q: "'$_imagesFolderId' in parents and trashed = false",
       $fields: 'files(id, name, mimeType)',
     );
 
     final Map<String, String> nameToPath = {};
-
     for (final f in res.files ?? <gdrive.File>[]) {
       final id = f.id;
       final name = f.name;
@@ -361,17 +307,12 @@ class CloudSyncService {
         downloadOptions: gdrive.DownloadOptions.fullMedia,
       ) as gdrive.Media;
 
-      final bytes =
-      await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
+      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
       final base64Str = base64Encode(bytes);
       final ext = p.extension(name).isEmpty ? '.png' : p.extension(name);
-
-      final localPath =
-      await LocalStorageService.saveBase64ToImage(base64Str, ext: ext);
-
+      final localPath = await LocalStorageService.saveBase64ToImage(base64Str, ext: ext);
       nameToPath[name] = localPath;
     }
-
     return nameToPath;
   }
 
@@ -385,16 +326,14 @@ class CloudSyncService {
         final newPath = nameToLocalPath[baseName];
         return newPath ?? value;
       } else if (value is Map) {
-        return value.map(
-              (k, v) => MapEntry(k, patch(v)),
-        );
+        return value.map((k, v) => MapEntry(k, patch(v)));
       } else if (value is List) {
         return value.map(patch).toList();
       }
       return value;
     }
 
-    return patch(map) as Map<String, dynamic>;
+    return Map<String, dynamic>.from(patch(map) as Map);
   }
 
   String _mimeFromExtension(String ext) {

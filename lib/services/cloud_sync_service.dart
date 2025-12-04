@@ -1,4 +1,3 @@
-// lib/services/cloud_sync_service.dart
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,16 +11,10 @@ import 'package:apphistorias/models/story.dart';
 
 class CloudSyncService {
   static const String appFolderName = 'AppHistorias';
-  static const String imagesFolderName = 'images';
-  static const String storiesFileName = 'stories.json';
-  static const String profileFileName = 'profile.json';
-  static const String profilePngName = 'profile.png';
+  static const String backupFileName = 'backup.dat';
 
   String? _folderId;
-  String? _imagesFolderId;
-  String? _storiesFileId;
-  String? _profileFileId;
-  String? _profilePngId;
+  String? _backupFileId;
 
   Future<gdrive.DriveApi?> _drive(AccountService acc) async {
     final client = await acc.authenticatedHttpClient();
@@ -31,10 +24,10 @@ class CloudSyncService {
 
   Future<void> _ensureAppFolder(AccountService acc) async {
     final drive = await _drive(acc);
-    if (drive == null) {
-      throw Exception('Inicia sesión con Google');
-    }
-    final q = "name = '$appFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+    if (drive == null) throw Exception('Inicia sesión con Google');
+
+    final q =
+        "name = '$appFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
     final res = await drive.files.list(q: q, $fields: 'files(id, name)');
     if (res.files != null && res.files!.isNotEmpty) {
       _folderId = res.files!.first.id;
@@ -46,41 +39,17 @@ class CloudSyncService {
     }
   }
 
-  Future<void> _ensureImagesFolder(AccountService acc) async {
-    final drive = await _drive(acc);
-    if (drive == null) {
-      throw Exception('Inicia sesión con Google');
-    }
-    await _ensureAppFolder(acc);
-    final q = "'$_folderId' in parents and name = '$imagesFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
-    final res = await drive.files.list(q: q, $fields: 'files(id, name)');
-    if (res.files != null && res.files!.isNotEmpty) {
-      _imagesFolderId = res.files!.first.id;
-    } else {
-      final folder = gdrive.File()
-        ..name = imagesFolderName
-        ..mimeType = 'application/vnd.google-apps.folder'
-        ..parents = [_folderId!];
-      _imagesFolderId = (await drive.files.create(folder, $fields: 'id')).id;
-    }
-  }
-
   Future<void> _ensureHandles(AccountService acc) async {
     final drive = await _drive(acc);
-    if (drive == null) {
-      throw Exception('Inicia sesión con Google');
-    }
+    if (drive == null) throw Exception('Inicia sesión con Google');
+
     await _ensureAppFolder(acc);
 
-    Future<String?> find(String name) async {
-      final q = "'$_folderId' in parents and name = '$name' and mimeType != 'application/vnd.google-apps.folder' and trashed = false";
-      final res = await drive.files.list(q: q, $fields: 'files(id, name)');
-      return res.files != null && res.files!.isNotEmpty ? res.files!.first.id : null;
-    }
-
-    _storiesFileId ??= await find(storiesFileName);
-    _profileFileId ??= await find(profileFileName);
-    _profilePngId ??= await find(profilePngName);
+    final q =
+        "'$_folderId' in parents and name = '$backupFileName' and mimeType != 'application/vnd.google-apps.folder' and trashed = false";
+    final res = await drive.files.list(q: q, $fields: 'files(id, name)');
+    _backupFileId =
+    res.files != null && res.files!.isNotEmpty ? res.files!.first.id : null;
   }
 
   Future<void> uploadAll({
@@ -88,122 +57,107 @@ class CloudSyncService {
     required List<Story> stories,
   }) async {
     final drive = await _drive(account);
-    if (drive == null) {
-      throw Exception('Inicia sesión con Google');
-    }
+    if (drive == null) throw Exception('Inicia sesión con Google');
+
     await _ensureHandles(account);
 
-    final storiesJson = jsonEncode(stories.map((s) => s.toMap()).toList());
-    final storiesBytes = utf8.encode(storiesJson);
-    final mediaStories = gdrive.Media(Stream.value(storiesBytes), storiesBytes.length);
-    final fileStories = gdrive.File()
-      ..name = storiesFileName
-      ..parents = [_folderId!]
-      ..mimeType = 'application/json';
-    if (_storiesFileId == null) {
-      _storiesFileId = (await drive.files.create(fileStories, uploadMedia: mediaStories, $fields: 'id')).id;
-    } else {
-      await drive.files.update(
-        gdrive.File()..mimeType = 'application/json',
-        _storiesFileId!,
-        uploadMedia: mediaStories,
-      );
-    }
+    final imagesBase64 = _collectImageBlobs(stories);
+    final profilePhotoBase64 = await _profilePhotoAsBase64(account);
 
-    final profileJson = jsonEncode(account.toProfileJson());
-    final profileBytes = utf8.encode(profileJson);
-    final mediaProfile = gdrive.Media(Stream.value(profileBytes), profileBytes.length);
-    if (_profileFileId == null) {
-      _profileFileId = (await drive.files.create(
-        gdrive.File()
-          ..name = profileFileName
-          ..parents = [_folderId!]
-          ..mimeType = 'application/json',
-        uploadMedia: mediaProfile,
+    final payload = <String, dynamic>{
+      'version': 1,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+      'stories': stories.map((s) => s.toMap()).toList(),
+      'profile': account.toProfileJson(),
+      'profilePhoto': profilePhotoBase64,
+      'images': imagesBase64,
+    };
+
+    final jsonStr = jsonEncode(payload);
+    final jsonBytes = utf8.encode(jsonStr);
+    final compressedBytes = gzip.encode(jsonBytes);
+
+    final media =
+    gdrive.Media(Stream.value(compressedBytes), compressedBytes.length);
+    final file = gdrive.File()
+      ..name = backupFileName
+      ..parents = [_folderId!]
+      ..mimeType = 'application/octet-stream';
+
+    if (_backupFileId == null) {
+      _backupFileId = (await drive.files.create(
+        file,
+        uploadMedia: media,
         $fields: 'id',
       ))
           .id;
     } else {
       await drive.files.update(
-        gdrive.File()..mimeType = 'application/json',
-        _profileFileId!,
-        uploadMedia: mediaProfile,
+        gdrive.File()..mimeType = 'application/octet-stream',
+        _backupFileId!,
+        uploadMedia: media,
       );
     }
-
-    if (account.photoPath != null && File(account.photoPath!).existsSync()) {
-      final bytes = File(account.photoPath!).readAsBytesSync();
-      final mediaPng = gdrive.Media(Stream.value(bytes), bytes.length);
-      if (_profilePngId == null) {
-        _profilePngId = (await drive.files.create(
-          gdrive.File()
-            ..name = profilePngName
-            ..parents = [_folderId!]
-            ..mimeType = 'image/png',
-          uploadMedia: mediaPng,
-          $fields: 'id',
-        ))
-            .id;
-      } else {
-        await drive.files.update(
-          gdrive.File()..mimeType = 'image/png',
-          _profilePngId!,
-          uploadMedia: mediaPng,
-        );
-      }
-    }
-
-    await _uploadStoryImages(account, drive, stories);
   }
 
-  Future<void> _uploadStoryImages(
-      AccountService account,
-      gdrive.DriveApi drive,
-      List<Story> stories,
-      ) async {
-    await _ensureImagesFolder(account);
+  Future<void> restoreAll({required AccountService account}) async {
+    final drive = await _drive(account);
+    if (drive == null) throw Exception('Inicia sesión con Google');
 
-    final existingRes = await drive.files.list(
-      q: "'$_imagesFolderId' in parents and trashed = false",
-      $fields: 'files(id, name)',
+    await _ensureHandles(account);
+    if (_backupFileId == null) {
+      throw Exception('No se encontró respaldo en Drive');
+    }
+
+    final media = await drive.files.get(
+      _backupFileId!,
+      downloadOptions: gdrive.DownloadOptions.fullMedia,
+    ) as gdrive.Media;
+
+    final compressed =
+    await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
+    final jsonBytes = gzip.decode(compressed);
+    final decoded = jsonDecode(utf8.decode(jsonBytes));
+
+    final root =
+    Map<String, dynamic>.from(decoded as Map<dynamic, dynamic>);
+
+    final imagesMapRaw =
+    Map<String, dynamic>.from(root['images'] as Map? ?? {});
+    final nameToLocalPath =
+    await _restoreImagesFromBase64(imagesMapRaw);
+
+    final storiesListRaw = (root['stories'] as List? ?? []);
+    final storiesMaps = storiesListRaw
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .map((m) => _patchImagePathsInMap(m, nameToLocalPath))
+        .toList();
+    final stories = storiesMaps.map((m) => Story.fromMap(m)).toList();
+    await LocalStorageService.saveStories(stories);
+
+    final profileRaw =
+    Map<String, dynamic>.from(root['profile'] as Map? ?? {});
+    await account.setAuthorDescription(
+      (profileRaw['authorDescription'] as String?) ?? '',
     );
-    final existing = <String, String>{};
-    for (final f in existingRes.files ?? <gdrive.File>[]) {
-      if (f.id != null && f.name != null) existing[f.name!] = f.id!;
-    }
+    await account.setCustomUserName(
+      (profileRaw['customUserName'] as String?) ?? '',
+    );
 
-    final imagePaths = _collectImagePaths(stories);
-
-    for (final path in imagePaths) {
-      final file = File(path);
-      if (!file.existsSync()) continue;
-
-      final name = p.basename(path);
-      final bytes = file.readAsBytesSync();
-      final media = gdrive.Media(Stream.value(bytes), bytes.length);
-      final ext = p.extension(name);
-      final mime = _mimeFromExtension(ext);
-
-      final String? existingId = existing[name];
-      if (existingId == null) {
-        await drive.files.create(
-          gdrive.File()
-            ..name = name
-            ..parents = [_imagesFolderId!]
-            ..mimeType = mime,
-          uploadMedia: media,
-        );
-      } else {
-        await drive.files.update(
-          gdrive.File()..mimeType = mime,
-          existingId,
-          uploadMedia: media,
-        );
-      }
+    final profilePhotoBase64 = root['profilePhoto'] as String?;
+    if (profilePhotoBase64 != null && profilePhotoBase64.isNotEmpty) {
+      final profilePath = await LocalStorageService.saveBase64ToImage(
+        profilePhotoBase64,
+        ext: '.png',
+      );
+      final box = await Hive.openBox('profile');
+      await box.put('photoPath', profilePath);
+      account.photoPath = profilePath;
+      account.notifyListeners();
     }
   }
 
-  Set<String> _collectImagePaths(List<Story> stories) {
+  Map<String, String> _collectImageBlobs(List<Story> stories) {
     final paths = <String>{};
 
     void collect(dynamic value) {
@@ -223,94 +177,40 @@ class CloudSyncService {
     for (final s in stories) {
       collect(s.toMap());
     }
-    return paths;
+
+    final result = <String, String>{};
+    for (final path in paths) {
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      final bytes = file.readAsBytesSync();
+      final b64 = base64Encode(bytes);
+      final name = p.basename(path);
+      result[name] = b64;
+    }
+    return result;
   }
 
-  Future<void> restoreAll({required AccountService account}) async {
-    final drive = await _drive(account);
-    if (drive == null) {
-      throw Exception('Inicia sesión con Google');
-    }
-    await _ensureHandles(account);
-
-    Map<String, String> imageNameToLocalPath = {};
-    if (_imagesFolderId != null) {
-      imageNameToLocalPath = await _downloadStoryImages(account, drive);
-    }
-
-    if (_storiesFileId != null) {
-      final media = await drive.files.get(
-        _storiesFileId!,
-        downloadOptions: gdrive.DownloadOptions.fullMedia,
-      ) as gdrive.Media;
-
-      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-      final decoded = jsonDecode(utf8.decode(bytes));
-      final listDynamic = (decoded as List);
-
-      final listMaps = listDynamic
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .map((m) => _patchImagePathsInMap(m, imageNameToLocalPath))
-          .toList();
-
-      final stories = listMaps.map((m) => Story.fromMap(m)).toList();
-      await LocalStorageService.saveStories(stories);
-    }
-
-    if (_profileFileId != null) {
-      final media = await drive.files.get(
-        _profileFileId!,
-        downloadOptions: gdrive.DownloadOptions.fullMedia,
-      ) as gdrive.Media;
-
-      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-      final raw = jsonDecode(utf8.decode(bytes));
-      final map = Map<String, dynamic>.from(raw as Map);
-      await account.setAuthorDescription((map['authorDescription'] as String?) ?? '');
-      await account.setCustomUserName((map['customUserName'] as String?) ?? '');
-    }
-
-    if (_profilePngId != null) {
-      final media = await drive.files.get(
-        _profilePngId!,
-        downloadOptions: gdrive.DownloadOptions.fullMedia,
-      ) as gdrive.Media;
-
-      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-      final base64Str = base64Encode(bytes);
-      final imgPath = await LocalStorageService.saveBase64ToImage(base64Str, ext: '.png');
-      final box = await Hive.openBox('profile');
-      await box.put('photoPath', imgPath);
-      account.photoPath = imgPath;
-      account.notifyListeners();
-    }
+  Future<String?> _profilePhotoAsBase64(AccountService account) async {
+    final path = account.photoPath;
+    if (path == null) return null;
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final bytes = await file.readAsBytes();
+    return base64Encode(bytes);
   }
 
-  Future<Map<String, String>> _downloadStoryImages(
-      AccountService account,
-      gdrive.DriveApi drive,
+  Future<Map<String, String>> _restoreImagesFromBase64(
+      Map<String, dynamic> imagesMap,
       ) async {
-    await _ensureImagesFolder(account);
-    final res = await drive.files.list(
-      q: "'$_imagesFolderId' in parents and trashed = false",
-      $fields: 'files(id, name, mimeType)',
-    );
-
     final Map<String, String> nameToPath = {};
-    for (final f in res.files ?? <gdrive.File>[]) {
-      final id = f.id;
-      final name = f.name;
-      if (id == null || name == null) continue;
+    for (final entry in imagesMap.entries) {
+      final name = entry.key;
+      final b64 = entry.value;
+      if (b64 is! String || b64.isEmpty) continue;
 
-      final media = await drive.files.get(
-        id,
-        downloadOptions: gdrive.DownloadOptions.fullMedia,
-      ) as gdrive.Media;
-
-      final bytes = await media.stream.fold<List<int>>([], (a, b) => a..addAll(b));
-      final base64Str = base64Encode(bytes);
       final ext = p.extension(name).isEmpty ? '.png' : p.extension(name);
-      final localPath = await LocalStorageService.saveBase64ToImage(base64Str, ext: ext);
+      final localPath =
+      await LocalStorageService.saveBase64ToImage(b64, ext: ext);
       nameToPath[name] = localPath;
     }
     return nameToPath;
@@ -333,20 +233,7 @@ class CloudSyncService {
       return value;
     }
 
-    return Map<String, dynamic>.from(patch(map) as Map);
-  }
-
-  String _mimeFromExtension(String ext) {
-    switch (ext.toLowerCase()) {
-      case '.png':
-        return 'image/png';
-      case '.jpg':
-      case '.jpeg':
-        return 'image/jpeg';
-      case '.webp':
-        return 'image/webp';
-      default:
-        return 'application/octet-stream';
-    }
+    final patched = patch(map) as Map;
+    return Map<String, dynamic>.from(patched as Map<dynamic, dynamic>);
   }
 }

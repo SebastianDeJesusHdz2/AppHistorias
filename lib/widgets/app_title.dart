@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:apphistorias/services/account_service.dart';
 
-/// Título del AppBar: avatar + nombre (o 'CronIA' cuando no hay sesión)
 class AppTitle extends StatelessWidget {
   const AppTitle({super.key});
 

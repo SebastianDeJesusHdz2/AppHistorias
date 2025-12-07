@@ -1,8 +1,6 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-
 import '../models/chapter.dart';
 
 class ChapterEditorView extends StatelessWidget {

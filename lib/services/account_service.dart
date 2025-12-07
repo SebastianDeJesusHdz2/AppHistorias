@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
@@ -9,7 +7,6 @@ import 'package:hive/hive.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-
 import 'package:apphistorias/services/local_storage_service.dart';
 
 class SignInResult {

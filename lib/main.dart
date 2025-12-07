@@ -2,15 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
-
 import 'package:apphistorias/services/local_storage_service.dart';
 import 'package:apphistorias/services/account_service.dart';
 import 'package:apphistorias/services/cloud_sync_service.dart';
-
 import 'package:apphistorias/screens/home_screen.dart';
 import 'package:apphistorias/screens/settings_screen.dart';
 import 'package:apphistorias/screens/account_screen.dart';
-
 import 'package:apphistorias/models/story.dart';
 
 class StoryProvider with ChangeNotifier {

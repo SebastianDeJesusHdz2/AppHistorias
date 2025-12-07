@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'package:apphistorias/services/account_service.dart';
 import 'package:apphistorias/services/cloud_sync_service.dart';
 import 'package:apphistorias/services/local_storage_service.dart';
 import 'package:apphistorias/main.dart';
-
 import 'account_view.dart';
 
 class AccountScreen extends StatefulWidget {

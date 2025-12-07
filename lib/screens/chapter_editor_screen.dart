@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-
 import '../models/story.dart';
 import '../models/chapter.dart';
 import 'chapter_form_screen.dart';

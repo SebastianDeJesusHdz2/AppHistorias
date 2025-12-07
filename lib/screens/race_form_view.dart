@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
-
 import '../models/race.dart';
 import '../widgets/image_selector.dart';
 
@@ -61,7 +59,7 @@ class RaceFormView extends StatelessWidget {
           _PaperTopBar(
             title: title,
             palette: palette,
-            showBack: !isEdit, // en edición NO flecha
+            showBack: !isEdit,
           ),
           Expanded(
             child: AnimatedPadding(
@@ -97,8 +95,6 @@ class RaceFormView extends StatelessWidget {
         ],
       ),
     );
-
-    // Crear raza: pantalla completa
     if (!isEdit) {
       return Scaffold(
         resizeToAvoidBottomInset: false,
@@ -110,17 +106,15 @@ class RaceFormView extends StatelessWidget {
         ),
       );
     }
-
-    // Editar raza: overlay flotante
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: Colors.black.withOpacity(0.25), // fondo sutil
+      backgroundColor: Colors.black.withOpacity(0.25),
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => Navigator.pop(context), // tap fuera -> cerrar
+        onTap: () => Navigator.pop(context),
         child: Center(
           child: GestureDetector(
-            onTap: () {}, // evita que los taps dentro cierren
+            onTap: () {},
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxWidth: 900,

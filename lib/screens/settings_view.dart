@@ -1,4 +1,3 @@
-// lib/screens/settings_view.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 

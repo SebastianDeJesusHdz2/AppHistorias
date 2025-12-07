@@ -1,4 +1,3 @@
-// lib/models/story.dart
 import 'race.dart';
 import 'chapter.dart';
 
@@ -7,11 +6,7 @@ class Story {
   String title;
   String description;
   String? imagePath;
-
-  // Nuevo: capítulos
   List<Chapter> chapters;
-
-  // Ya existente: razas
   List<Race> races;
 
   Story({

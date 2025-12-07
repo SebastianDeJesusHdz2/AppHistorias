@@ -1,7 +1,5 @@
-// lib/widgets/character_tile.dart
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import '../models/character.dart';
 
@@ -21,13 +19,12 @@ class CharacterTile extends StatelessWidget {
   Widget _buildImage(String? img) {
     if (img == null || img.isEmpty) return _placeholder();
 
-    // Heurística para base64 crudo (sin ruta ni http)
     final looksBase64 =
         img.length > 100 && !img.startsWith('http') && !img.contains(Platform.pathSeparator);
 
     if (looksBase64) {
       try {
-        final bytes = base64Decode(img); // puede lanzar FormatException
+        final bytes = base64Decode(img);
         return ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.memory(
@@ -56,7 +53,6 @@ class CharacterTile extends StatelessWidget {
       );
     }
 
-    // Ruta local: verifica archivo existente
     final file = File(img);
     if (!file.existsSync()) return _placeholder();
 

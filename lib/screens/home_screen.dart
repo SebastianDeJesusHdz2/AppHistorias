@@ -1,17 +1,13 @@
-// lib/screens/home_screen.dart
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'package:apphistorias/models/story.dart';
-import 'package:apphistorias/main.dart'; // StoryProvider
+import 'package:apphistorias/main.dart';
 import 'package:apphistorias/screens/story_detail_screen.dart';
 import 'package:apphistorias/screens/story_form.dart';
 import 'package:apphistorias/screens/settings_screen.dart';
 import 'package:apphistorias/services/local_storage_service.dart';
-
 import 'home_view.dart';
 
 class HomeScreen extends StatefulWidget {

@@ -1,9 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
-
-import 'package:flutter/foundation.dart'; // <- mapEquals
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
 import '../models/race.dart';
 import '../widgets/image_selector.dart';
 
@@ -17,7 +15,6 @@ class CharacterFormView extends StatefulWidget {
   final List<Race> races;
   final Race? selectedRace;
 
-  /// key = RaceFieldDef.key, value dinámico
   final Map<String, dynamic> attributes;
 
   final ValueChanged<String> onChangeImage;

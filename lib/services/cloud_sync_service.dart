@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:hive/hive.dart';
 import 'package:googleapis/drive/v3.dart' as gdrive;
 import 'package:path/path.dart' as p;
-
 import 'package:apphistorias/services/local_storage_service.dart';
 import 'package:apphistorias/services/account_service.dart';
 import 'package:apphistorias/models/story.dart';

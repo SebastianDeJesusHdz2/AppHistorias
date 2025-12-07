@@ -53,7 +53,7 @@ class _StoryFormState extends State<StoryForm> {
   @override
   Widget build(BuildContext context) {
     return StoryFormView(
-      isEdit: false, // este formulario solo crea historias nuevas
+      isEdit: false,
       titleController: titleController,
       descriptionController: descriptionController,
       onSave: guardarHistoria,

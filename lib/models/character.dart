@@ -6,10 +6,6 @@ class Character {
   String? description;
   String raceId;
   String? imagePath;
-
-  /// Valores de los campos de la raza.
-  /// Clave = `RaceFieldDef.key` de la raza.
-  /// Valor = String / num / bool según el tipo.
   Map<String, dynamic> attributes;
 
   Character({

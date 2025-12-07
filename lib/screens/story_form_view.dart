@@ -1,5 +1,4 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 class StoryFormView extends StatelessWidget {
@@ -28,7 +27,7 @@ class StoryFormView extends StatelessWidget {
           _PaperTopBar(
             title: isEdit ? 'Editar historia' : 'Nueva historia',
             palette: palette,
-            showBack: !isEdit, // en overlay de edición no se muestra flecha
+            showBack: !isEdit,
           ),
           Expanded(
             child: AnimatedPadding(
@@ -59,7 +58,6 @@ class StoryFormView extends StatelessWidget {
       ),
     );
 
-    // Crear historia: pantalla completa
     if (!isEdit) {
       return Scaffold(
         resizeToAvoidBottomInset: false,
@@ -72,8 +70,6 @@ class StoryFormView extends StatelessWidget {
       );
     }
 
-    // Editar historia (si en algún sitio la usas con isEdit: true):
-    // widget flotante con fondo sutil y cierre al tocar fuera.
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black.withOpacity(0.14),

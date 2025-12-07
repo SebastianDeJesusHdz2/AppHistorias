@@ -1,9 +1,6 @@
-// lib/screens/home_view.dart
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import 'package:apphistorias/models/story.dart';
 import 'package:apphistorias/services/account_service.dart';
 
@@ -26,7 +23,6 @@ class HomeView extends StatelessWidget {
   final StoryIndexCallback onDeleteStoryAt;
   final StoryCallback onOpenStory;
 
-  // NUEVO: lógica de imagen inyectada desde HomeScreen
   final Widget Function(String? img, {double w, double h, BoxFit fit})
   imageBuilder;
   final void Function(String? imagePath) onPreviewStoryImage;
@@ -350,7 +346,6 @@ class _StoryCard extends StatelessWidget {
     final img = story.imagePath;
 
     if (img == null || img.isEmpty) {
-      // Placeholder si no hay portada
       return Container(
         width: 92,
         height: 92,
@@ -372,8 +367,6 @@ class _StoryCard extends StatelessWidget {
         ),
       );
     }
-
-    // Miniatura real usando la función que viene de HomeScreen
     return GestureDetector(
       onTap: () => onPreviewStoryImage(img),
       child: ClipRRect(

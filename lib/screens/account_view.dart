@@ -1,8 +1,5 @@
-// lib/screens/account_view.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
 import 'package:apphistorias/services/account_service.dart';
 
 typedef AsyncVoidCallback = Future<void> Function();

@@ -1,4 +1,3 @@
-// lib/models/race.dart
 import 'character.dart';
 
 class Race {
@@ -6,7 +5,7 @@ class Race {
   String name;
   String description;
   String? imagePath;
-  List<RaceFieldDef> fields; // si las usas
+  List<RaceFieldDef> fields;
   List<Character> characters;
 
   Race({
@@ -42,7 +41,6 @@ class Race {
   );
 }
 
-// Define lo mínimo para RaceFieldDef si lo usas
 enum RaceFieldType { text, number, boolean }
 
 class RaceFieldDef {

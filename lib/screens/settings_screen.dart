@@ -1,7 +1,5 @@
-// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../services/local_storage_service.dart';
 import '../main.dart';
 import 'settings_view.dart';

@@ -1,20 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:apphistorias/models/story.dart';
 import 'package:apphistorias/models/race.dart';
 import 'package:apphistorias/models/character.dart';
-
 import 'package:apphistorias/screens/race_form.dart';
 import 'package:apphistorias/screens/character_form.dart';
 import 'package:apphistorias/screens/chapter_editor_screen.dart';
 import 'package:apphistorias/screens/pdf_preview_screen.dart';
-
-import 'package:apphistorias/widgets/image_selector.dart';
 import 'package:apphistorias/services/local_storage_service.dart';
 import 'package:apphistorias/main.dart';
 
@@ -288,7 +283,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     }
   }
 
-  // ==== AQUÍ CAMBIA: usar ruta transparente para editar ====
   Future<void> _editarRaza(Race race) async {
     final edited = await Navigator.of(context).push<Race>(
       TransparentPageRoute(
@@ -306,7 +300,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         race.imagePath = edited.imagePath;
         race.fields = cleaned;
 
-        // Sincronizar atributos en todos los personajes de esta raza
         final allowedKeys = cleaned.map((f) => f.key).toSet();
 
         for (final ch in race.characters) {

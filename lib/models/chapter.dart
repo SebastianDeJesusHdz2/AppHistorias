@@ -1,4 +1,3 @@
-// lib/models/chapter.dart
 class Chapter {
   String id;
   String title;

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-
 import '../models/character.dart';
 import '../models/race.dart';
 import 'character_form_view.dart';
@@ -28,7 +27,6 @@ class _CharacterFormState extends State<CharacterForm> {
   String? _imagePath;
   Race? _selectedRace;
 
-  /// Valores de atributos actuales del personaje.
   final Map<String, dynamic> _attrValues = <String, dynamic>{};
 
   bool get _isEdit => widget.initialCharacter != null;
@@ -71,8 +69,6 @@ class _CharacterFormState extends State<CharacterForm> {
   void _updateRace(Race race) {
     setState(() {
       _selectedRace = race;
-      // No borramos valores existentes: se conservarán
-      // para las claves que coincidan.
     });
   }
 
@@ -101,7 +97,6 @@ class _CharacterFormState extends State<CharacterForm> {
       return;
     }
 
-    // Validar que todos los campos de la raza tengan valor
     final missing = <String>[];
     for (final def in race.fields) {
       final v = _attrValues[def.key];
@@ -135,7 +130,6 @@ class _CharacterFormState extends State<CharacterForm> {
       return;
     }
 
-    // Solo guardamos atributos que existan en la raza actual
     final allowedKeys = race.fields.map((f) => f.key).toSet();
     final cleanAttrs = <String, dynamic>{};
     _attrValues.forEach((k, v) {

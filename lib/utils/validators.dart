@@ -6,6 +6,5 @@ class Validators {
     return null;
   }
 
-// Agrega más validaciones personalizadas según lo necesites
 }
 

@@ -1,13 +1,18 @@
-import 'race.dart';
 import 'chapter.dart';
+import 'race.dart';
+import 'location.dart';
 
 class Story {
   String id;
   String title;
   String description;
   String? imagePath;
+
   List<Chapter> chapters;
   List<Race> races;
+
+  // NUEVO
+  List<Location> locations;
 
   Story({
     required this.id,
@@ -16,8 +21,10 @@ class Story {
     this.imagePath,
     List<Chapter>? chapters,
     List<Race>? races,
-  })  : chapters = chapters ?? [],
-        races = races ?? [];
+    List<Location>? locations,
+  })  : chapters = chapters ?? <Chapter>[],
+        races = races ?? <Race>[],
+        locations = locations ?? <Location>[];
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -26,6 +33,7 @@ class Story {
     'imagePath': imagePath,
     'chapters': chapters.map((c) => c.toMap()).toList(),
     'races': races.map((r) => r.toMap()).toList(),
+    'locations': locations.map((l) => l.toMap()).toList(),
   };
 
   factory Story.fromMap(Map<String, dynamic> m) => Story(
@@ -39,6 +47,8 @@ class Story {
     races: (m['races'] as List? ?? [])
         .map((x) => Race.fromMap((x as Map).cast<String, dynamic>()))
         .toList(),
+    locations: (m['locations'] as List? ?? [])
+        .map((x) => Location.fromMap((x as Map).cast<String, dynamic>()))
+        .toList(),
   );
 }
-

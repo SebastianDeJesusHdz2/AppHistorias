@@ -1,10 +1,13 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import 'package:apphistorias/models/story.dart';
 import 'package:apphistorias/models/race.dart';
 import 'package:apphistorias/models/character.dart';
+
+// NUEVO
+import 'package:apphistorias/models/location.dart';
+import 'package:apphistorias/models/place.dart';
 
 typedef ImageBuilderFn = Widget Function(
     String? img, {
@@ -14,8 +17,12 @@ typedef ImageBuilderFn = Widget Function(
     });
 
 typedef AsyncVoidCallback = Future<void> Function();
+
 typedef RaceCallback = Future<void> Function(Race race);
 typedef CharacterCallback = Future<void> Function(Race race, Character ch);
+
+typedef LocationCallback = Future<void> Function(Location loc);
+typedef PlaceCallback = Future<void> Function(Location loc, Place place);
 
 class StoryDetailView extends StatelessWidget {
   final Story story;
@@ -24,17 +31,26 @@ class StoryDetailView extends StatelessWidget {
   final void Function(String? img) onPreviewImage;
 
   final AsyncVoidCallback onPickStoryImage;
-
   final AsyncVoidCallback onOpenChapters;
   final AsyncVoidCallback onOpenPdf;
 
+  // Razas / Personajes
   final AsyncVoidCallback onCreateRace;
   final RaceCallback onEditRace;
   final RaceCallback onDeleteRace;
 
-  final RaceCallback onCreateCharacter;
+  final Future<void> Function(Race race) onCreateCharacter;
   final CharacterCallback onEditCharacter;
   final CharacterCallback onDeleteCharacter;
+
+  // Ubicaciones / Lugares
+  final AsyncVoidCallback onCreateLocation;
+  final LocationCallback onEditLocation;
+  final LocationCallback onDeleteLocation;
+
+  final Future<void> Function(Location loc) onCreatePlace;
+  final PlaceCallback onEditPlace;
+  final PlaceCallback onDeletePlace;
 
   const StoryDetailView({
     super.key,
@@ -44,12 +60,20 @@ class StoryDetailView extends StatelessWidget {
     required this.onPickStoryImage,
     required this.onOpenChapters,
     required this.onOpenPdf,
+
     required this.onCreateRace,
     required this.onEditRace,
     required this.onDeleteRace,
     required this.onCreateCharacter,
     required this.onEditCharacter,
     required this.onDeleteCharacter,
+
+    required this.onCreateLocation,
+    required this.onEditLocation,
+    required this.onDeleteLocation,
+    required this.onCreatePlace,
+    required this.onEditPlace,
+    required this.onDeletePlace,
   });
 
   @override
@@ -60,8 +84,8 @@ class StoryDetailView extends StatelessWidget {
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 700;
 
-        final leftColumn = _buildLeftColumn(context, palette);
-        final rightColumn = _buildRightColumn(context, palette);
+        final left = _buildLeftColumn(context, palette);
+        final right = _buildRightColumn(context, palette);
 
         return Scaffold(
           resizeToAvoidBottomInset: true,
@@ -74,37 +98,20 @@ class StoryDetailView extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: palette.backgroundGradient,
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0.0, -0.7),
-                      radius: 1.3,
-                      colors: [
-                        Colors.white.withOpacity(0.14),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 1.0],
+                      stops: const [0.0, 0.55, 1.0],
                     ),
                   ),
                 ),
               ),
               Positioned.fill(
                 child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: _SoftLeavesPainter(palette),
-                  ),
+                  child: CustomPaint(painter: _SoftShapesPainter(palette)),
                 ),
               ),
               SafeArea(
                 child: Column(
                   children: [
-                    _TopBar(palette: palette),
+                    _TopBar(palette: palette, title: 'Detalles de la historia'),
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.all(16),
@@ -113,10 +120,10 @@ class StoryDetailView extends StatelessWidget {
                           keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                           children: [
-                            ...leftColumn,
-                            const SizedBox(height: 24),
-                            ...rightColumn,
-                            const SizedBox(height: 24),
+                            ...left,
+                            const SizedBox(height: 22),
+                            ...right,
+                            const SizedBox(height: 22),
                           ],
                         )
                             : Row(
@@ -129,12 +136,12 @@ class StoryDetailView extends StatelessWidget {
                                 ScrollViewKeyboardDismissBehavior
                                     .onDrag,
                                 children: [
-                                  ...leftColumn,
-                                  const SizedBox(height: 24),
+                                  ...left,
+                                  const SizedBox(height: 22),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 24),
+                            const SizedBox(width: 18),
                             Expanded(
                               flex: 18,
                               child: ListView(
@@ -142,8 +149,8 @@ class StoryDetailView extends StatelessWidget {
                                 ScrollViewKeyboardDismissBehavior
                                     .onDrag,
                                 children: [
-                                  ...rightColumn,
-                                  const SizedBox(height: 24),
+                                  ...right,
+                                  const SizedBox(height: 22),
                                 ],
                               ),
                             ),
@@ -161,17 +168,18 @@ class StoryDetailView extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildLeftColumn(
-      BuildContext context,
-      _PaperPalette palette,
-      ) {
+  // =========================
+  // COLUMNA IZQUIERDA
+  // =========================
+  List<Widget> _buildLeftColumn(BuildContext context, _PaperPalette palette) {
     return [
       GestureDetector(
         onTap: () => onPreviewImage(story.imagePath),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: _GlassWrapper(
-            palette: palette,
+        child: _GlassCard(
+          palette: palette,
+          padding: EdgeInsets.zero,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
             child: SizedBox(
               height: 190,
               width: double.infinity,
@@ -179,8 +187,8 @@ class StoryDetailView extends StatelessWidget {
                 fit: BoxFit.cover,
                 child: buildAnyImage(
                   story.imagePath,
-                  w: 400,
-                  h: 260,
+                  w: 480,
+                  h: 320,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -189,22 +197,42 @@ class StoryDetailView extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 12),
-      _GlassWrapper(
+      _GlassCard(
         palette: palette,
-        child: _StoryImageSelector(
-          palette: palette,
-          onPickStoryImage: onPickStoryImage,
+        child: Row(
+          children: [
+            Icon(Icons.photo_library_outlined, color: palette.inkMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Cambiar imagen de la historia',
+                style: TextStyle(color: palette.inkMuted),
+              ),
+            ),
+            const SizedBox(width: 10),
+            FilledButton.icon(
+              onPressed: () => onPickStoryImage(),
+              icon: const Icon(Icons.upload),
+              label: const Text('Subir'),
+              style: FilledButton.styleFrom(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            ),
+          ],
         ),
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 18),
+
+      // ===== Razas =====
       Row(
         children: [
           Text(
             'Razas',
             style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
               color: palette.ink,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
             ),
           ),
           const Spacer(),
@@ -221,8 +249,8 @@ class StoryDetailView extends StatelessWidget {
           'Aún no hay razas. Agrega la primera.',
           style: TextStyle(color: palette.inkMuted),
         ),
-      ...story.races.map(
-            (race) => _GlassWrapper(
+      ...story.races.map((race) {
+        return _GlassCard(
           palette: palette,
           margin: const EdgeInsets.only(bottom: 10),
           child: ListTile(
@@ -231,12 +259,8 @@ class StoryDetailView extends StatelessWidget {
             leading: GestureDetector(
               onTap: () => onPreviewImage(race.imagePath),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: buildAnyImage(
-                  race.imagePath,
-                  w: 48,
-                  h: 48,
-                ),
+                borderRadius: BorderRadius.circular(10),
+                child: buildAnyImage(race.imagePath, w: 48, h: 48),
               ),
             ),
             title: Text(
@@ -267,20 +291,92 @@ class StoryDetailView extends StatelessWidget {
               ],
             ),
           ),
-        ),
+        );
+      }),
+
+      const SizedBox(height: 18),
+
+      // ===== Ubicaciones =====
+      Row(
+        children: [
+          Text(
+            'Ubicaciones',
+            style: TextStyle(
+              color: palette.ink,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+            ),
+          ),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: () => onCreateLocation(),
+            icon: const Icon(Icons.add),
+            label: const Text('Nueva ubicación'),
+          ),
+        ],
       ),
+      const SizedBox(height: 6),
+      if (story.locations.isEmpty)
+        Text(
+          'Aún no hay ubicaciones. Agrega la primera.',
+          style: TextStyle(color: palette.inkMuted),
+        ),
+      ...story.locations.map((loc) {
+        return _GlassCard(
+          palette: palette,
+          margin: const EdgeInsets.only(bottom: 10),
+          child: ListTile(
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            leading: GestureDetector(
+              onTap: () => onPreviewImage(loc.imagePath),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: buildAnyImage(loc.imagePath, w: 48, h: 48),
+              ),
+            ),
+            title: Text(
+              loc.name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: palette.ink),
+            ),
+            subtitle: Text(
+              loc.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: palette.inkMuted),
+            ),
+            trailing: Wrap(
+              spacing: 6,
+              children: [
+                IconButton(
+                  tooltip: 'Editar',
+                  onPressed: () => onEditLocation(loc),
+                  icon: const Icon(Icons.edit),
+                  color: palette.ink,
+                ),
+                IconButton(
+                  tooltip: 'Eliminar ubicación',
+                  onPressed: () => onDeleteLocation(loc),
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
     ];
   }
 
-  List<Widget> _buildRightColumn(
-      BuildContext context,
-      _PaperPalette palette,
-      ) {
+  // =========================
+  // COLUMNA DERECHA
+  // =========================
+  List<Widget> _buildRightColumn(BuildContext context, _PaperPalette palette) {
     return [
       Text(
         story.title,
         style: TextStyle(
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w900,
           fontSize: 26,
           color: palette.ink,
         ),
@@ -289,13 +385,12 @@ class StoryDetailView extends StatelessWidget {
       const SizedBox(height: 8),
       Text(
         story.description,
-        style: TextStyle(
-          fontSize: 17,
-          color: palette.inkMuted,
-        ),
+        style: TextStyle(fontSize: 16.5, color: palette.inkMuted),
       ),
       const SizedBox(height: 12),
-      Row(
+      Wrap(
+        spacing: 12,
+        runSpacing: 10,
         children: [
           FilledButton.icon(
             onPressed: () => onOpenChapters(),
@@ -306,7 +401,6 @@ class StoryDetailView extends StatelessWidget {
               foregroundColor: palette.onRibbon,
             ),
           ),
-          const SizedBox(width: 12),
           OutlinedButton.icon(
             onPressed: () => onOpenPdf(),
             icon: const Icon(Icons.picture_as_pdf),
@@ -319,10 +413,12 @@ class StoryDetailView extends StatelessWidget {
         ],
       ),
       const SizedBox(height: 20),
+
+      // ===== Personajes por raza =====
       Text(
         'Personajes por raza',
         style: TextStyle(
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w900,
           fontSize: 20,
           color: palette.ink,
         ),
@@ -333,136 +429,246 @@ class StoryDetailView extends StatelessWidget {
           'No hay razas; agrega una para comenzar con personajes.',
           style: TextStyle(color: palette.inkMuted),
         ),
-      ...story.races.map(
-            (race) {
-          final count = race.characters.length;
-          return _GlassWrapper(
-            palette: palette,
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ExpansionTile(
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: buildAnyImage(race.imagePath, w: 36, h: 36),
-              ),
-              title: Text(
-                race.name,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: palette.ink),
-              ),
-              subtitle: Text(
-                '$count personaje${count == 1 ? '' : 's'}',
-                style: TextStyle(color: palette.inkMuted),
-              ),
-              childrenPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              trailing: Wrap(
-                spacing: 8,
-                children: [
-                  TextButton.icon(
-                    onPressed: () => onCreateCharacter(race),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Agregar'),
-                  ),
-                  IconButton(
-                    tooltip: 'Eliminar raza',
-                    onPressed: () => onDeleteRace(race),
-                    icon: const Icon(Icons.delete_forever, color: Colors.red),
-                  ),
-                ],
-              ),
+      ...story.races.map((race) {
+        final count = race.characters.length;
+
+        return _GlassCard(
+          palette: palette,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: EdgeInsets.zero,
+          child: ExpansionTile(
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: buildAnyImage(race.imagePath, w: 36, h: 36),
+            ),
+            title: Text(
+              race.name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: palette.ink),
+            ),
+            subtitle: Text(
+              '$count personaje${count == 1 ? '' : 's'}',
+              style: TextStyle(color: palette.inkMuted),
+            ),
+            trailing: Wrap(
+              spacing: 8,
               children: [
-                if (race.characters.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'Sin personajes en esta raza.',
-                      style: TextStyle(color: palette.inkMuted),
-                    ),
-                  ),
-                ...race.characters.map(
-                      (ch) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    color: Colors.transparent,
-                    elevation: 0,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: palette.paper.withOpacity(0.86),
-                            border: Border.all(color: palette.edge, width: 1),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            leading: GestureDetector(
-                              onTap: () => onPreviewImage(ch.imagePath),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: buildAnyImage(
-                                  ch.imagePath,
-                                  w: 44,
-                                  h: 44,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              ch.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: palette.ink),
-                            ),
-                            subtitle: Text(
-                              (ch.description ?? '').isEmpty
-                                  ? 'Sin descripción'
-                                  : (ch.description!.length > 80
-                                  ? '${ch.description!.substring(0, 80)}...'
-                                  : ch.description!),
-                              style: TextStyle(color: palette.inkMuted),
-                            ),
-                            onTap: () => onEditCharacter(race, ch),
-                            trailing: Wrap(
-                              spacing: 6,
-                              children: [
-                                IconButton(
-                                  tooltip: 'Editar',
-                                  onPressed: () => onEditCharacter(race, ch),
-                                  icon: const Icon(Icons.edit),
-                                  color: palette.ink,
-                                ),
-                                IconButton(
-                                  tooltip: 'Eliminar',
-                                  onPressed: () =>
-                                      onDeleteCharacter(race, ch),
-                                  icon: const Icon(
-                                    Icons.delete_forever,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                TextButton.icon(
+                  onPressed: () => onCreateCharacter(race),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Agregar'),
+                ),
+                IconButton(
+                  tooltip: 'Eliminar raza',
+                  onPressed: () => onDeleteRace(race),
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
                 ),
               ],
             ),
-          );
-        },
+            childrenPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            children: [
+              if (race.characters.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Sin personajes en esta raza.',
+                    style: TextStyle(color: palette.inkMuted),
+                  ),
+                ),
+              ...race.characters.map((ch) {
+                final subtitle = (ch.description ?? '').trim();
+                final shown = subtitle.isEmpty
+                    ? 'Sin descripción'
+                    : (subtitle.length > 90 ? '${subtitle.substring(0, 90)}…' : subtitle);
+
+                return _InnerCard(
+                  palette: palette,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    leading: GestureDetector(
+                      onTap: () => onPreviewImage(ch.imagePath),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: buildAnyImage(ch.imagePath, w: 44, h: 44),
+                      ),
+                    ),
+                    title: Text(
+                      ch.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.ink),
+                    ),
+                    subtitle: Text(
+                      shown,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.inkMuted),
+                    ),
+                    onTap: () => onEditCharacter(race, ch),
+                    trailing: Wrap(
+                      spacing: 6,
+                      children: [
+                        IconButton(
+                          tooltip: 'Editar',
+                          onPressed: () => onEditCharacter(race, ch),
+                          icon: const Icon(Icons.edit),
+                          color: palette.ink,
+                        ),
+                        IconButton(
+                          tooltip: 'Eliminar',
+                          onPressed: () => onDeleteCharacter(race, ch),
+                          icon: const Icon(Icons.delete_forever, color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      }),
+
+      const SizedBox(height: 22),
+
+      // ===== Lugares por ubicación =====
+      Text(
+        'Lugares por ubicación',
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 20,
+          color: palette.ink,
+        ),
       ),
+      const SizedBox(height: 8),
+      if (story.locations.isEmpty)
+        Text(
+          'No hay ubicaciones; agrega una para comenzar con lugares.',
+          style: TextStyle(color: palette.inkMuted),
+        ),
+      ...story.locations.map((loc) {
+        final count = loc.places.length;
+
+        return _GlassCard(
+          palette: palette,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: EdgeInsets.zero,
+          child: ExpansionTile(
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: buildAnyImage(loc.imagePath, w: 36, h: 36),
+            ),
+            title: Text(
+              loc.name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: palette.ink),
+            ),
+            subtitle: Text(
+              '$count lugar${count == 1 ? '' : 'es'}',
+              style: TextStyle(color: palette.inkMuted),
+            ),
+            trailing: Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: () => onCreatePlace(loc),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Agregar'),
+                ),
+                IconButton(
+                  tooltip: 'Eliminar ubicación',
+                  onPressed: () => onDeleteLocation(loc),
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                ),
+              ],
+            ),
+            childrenPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            children: [
+              if (loc.places.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Sin lugares en esta ubicación.',
+                    style: TextStyle(color: palette.inkMuted),
+                  ),
+                ),
+              ...loc.places.map((p) {
+                final subtitle = (p.description ?? '').trim();
+                final shown = subtitle.isEmpty
+                    ? 'Sin descripción'
+                    : (subtitle.length > 90 ? '${subtitle.substring(0, 90)}…' : subtitle);
+
+                return _InnerCard(
+                  palette: palette,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    leading: GestureDetector(
+                      onTap: () => onPreviewImage(p.imagePath),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: buildAnyImage(p.imagePath, w: 44, h: 44),
+                      ),
+                    ),
+                    title: Text(
+                      p.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.ink),
+                    ),
+                    subtitle: Text(
+                      shown,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: palette.inkMuted),
+                    ),
+                    onTap: () => onEditPlace(loc, p),
+                    trailing: Wrap(
+                      spacing: 6,
+                      children: [
+                        IconButton(
+                          tooltip: 'Editar',
+                          onPressed: () => onEditPlace(loc, p),
+                          icon: const Icon(Icons.edit),
+                          color: palette.ink,
+                        ),
+                        IconButton(
+                          tooltip: 'Eliminar',
+                          onPressed: () => onDeletePlace(loc, p),
+                          icon: const Icon(Icons.delete_forever, color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      }),
     ];
   }
 }
 
+// =========================
+// UI helpers (no dependen de tu repo)
+// =========================
+
 class _TopBar extends StatelessWidget {
   final _PaperPalette palette;
+  final String title;
 
-  const _TopBar({required this.palette});
+  const _TopBar({
+    required this.palette,
+    required this.title,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -476,14 +682,9 @@ class _TopBar extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                colors: [
-                  palette.paper.withOpacity(0.9),
-                  palette.paper.withOpacity(0.7),
-                ],
-              ),
+              color: palette.paper.withOpacity(0.86),
               border: Border.all(
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withOpacity(0.35),
                 width: 1,
               ),
             ),
@@ -494,13 +695,16 @@ class _TopBar extends StatelessWidget {
                   icon: Icon(Icons.arrow_back_rounded, color: palette.ink),
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  'Detalles de la historia',
-                  style: TextStyle(
-                    color: palette.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.7,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: palette.ink,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -512,50 +716,17 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _StoryImageSelector extends StatelessWidget {
+class _GlassCard extends StatelessWidget {
   final _PaperPalette palette;
-  final AsyncVoidCallback onPickStoryImage;
-
-  const _StoryImageSelector({
-    required this.palette,
-    required this.onPickStoryImage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(Icons.photo_library_outlined, color: palette.inkMuted),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'Cambiar imagen de la historia',
-            style: TextStyle(color: palette.inkMuted),
-          ),
-        ),
-        const SizedBox(width: 8),
-        FilledButton.icon(
-          onPressed: () => onPickStoryImage(),
-          icon: const Icon(Icons.upload),
-          label: const Text('Subir'),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GlassWrapper extends StatelessWidget {
   final Widget child;
-  final _PaperPalette palette;
   final EdgeInsetsGeometry? margin;
+  final EdgeInsetsGeometry padding;
 
-  const _GlassWrapper({
-    required this.child,
+  const _GlassCard({
     required this.palette,
+    required this.child,
     this.margin,
+    this.padding = const EdgeInsets.all(12),
   });
 
   @override
@@ -569,30 +740,20 @@ class _GlassWrapper extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
+              color: palette.paper.withOpacity(0.82),
               border: Border.all(
-                color: Colors.white.withOpacity(0.35),
+                color: Colors.white.withOpacity(0.32),
                 width: 1,
-              ),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  palette.paper.withOpacity(0.9),
-                  palette.paper.withOpacity(0.7),
-                ],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.16),
-                  blurRadius: 16,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(0.14),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: child,
-            ),
+            child: Padding(padding: padding, child: child),
           ),
         ),
       ),
@@ -600,116 +761,137 @@ class _GlassWrapper extends StatelessWidget {
   }
 }
 
-class _SoftLeavesPainter extends CustomPainter {
+class _InnerCard extends StatelessWidget {
   final _PaperPalette palette;
+  final Widget child;
+  final EdgeInsetsGeometry? margin;
 
-  _SoftLeavesPainter(this.palette);
+  const _InnerCard({
+    required this.palette,
+    required this.child,
+    this.margin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: margin ?? EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: palette.paper.withOpacity(0.72),
+              border: Border.all(color: palette.edge.withOpacity(0.75)),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftShapesPainter extends CustomPainter {
+  final _PaperPalette palette;
+  _SoftShapesPainter(this.palette);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paintTop = Paint()
+    final p1 = Paint()
       ..shader = LinearGradient(
-        colors: [
-          palette.edge.withOpacity(0.22),
-          Colors.transparent,
-        ],
         begin: Alignment.topLeft,
         end: Alignment.centerRight,
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    final pathTop = Path()
-      ..moveTo(0, size.height * 0.03)
-      ..quadraticBezierTo(size.width * 0.35, 0, size.width * 0.7,
-          size.height * 0.08)
-      ..quadraticBezierTo(size.width * 0.4, size.height * 0.18, 0,
-          size.height * 0.14)
-      ..close();
-    canvas.drawPath(pathTop, paintTop);
-
-    final paintSide = Paint()
-      ..shader = LinearGradient(
         colors: [
-          palette.edge.withOpacity(0.26),
+          palette.edge.withOpacity(0.20),
           Colors.transparent,
         ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final top = Path()
+      ..moveTo(0, size.height * 0.04)
+      ..quadraticBezierTo(
+          size.width * 0.35, 0, size.width * 0.78, size.height * 0.10)
+      ..quadraticBezierTo(
+          size.width * 0.45, size.height * 0.22, 0, size.height * 0.18)
+      ..close();
+
+    canvas.drawPath(top, p1);
+
+    final p2 = Paint()
+      ..shader = LinearGradient(
         begin: Alignment.centerRight,
         end: Alignment.centerLeft,
+        colors: [
+          palette.edge.withOpacity(0.24),
+          Colors.transparent,
+        ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    final pathSide = Path()
-      ..moveTo(size.width, size.height * 0.45)
-      ..quadraticBezierTo(size.width * 0.8, size.height * 0.4,
-          size.width * 0.62, size.height * 0.56)
+    final side = Path()
+      ..moveTo(size.width, size.height * 0.46)
+      ..quadraticBezierTo(size.width * 0.78, size.height * 0.40,
+          size.width * 0.62, size.height * 0.58)
       ..quadraticBezierTo(
-          size.width * 0.86, size.height * 0.7, size.width, size.height * 0.76)
+          size.width * 0.90, size.height * 0.72, size.width, size.height * 0.78)
       ..close();
-    canvas.drawPath(pathSide, paintSide);
 
-    final paintBottom = Paint()
+    canvas.drawPath(side, p2);
+
+    final p3 = Paint()
       ..shader = LinearGradient(
-        colors: [
-          palette.paper.withOpacity(0.0),
-          palette.edge.withOpacity(0.22),
-        ],
         begin: Alignment.centerLeft,
         end: Alignment.bottomRight,
+        colors: [
+          Colors.transparent,
+          palette.edge.withOpacity(0.20),
+        ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    final pathBottom = Path()
+    final bottom = Path()
       ..moveTo(0, size.height)
-      ..quadraticBezierTo(size.width * 0.3, size.height * 0.87,
-          size.width * 0.6, size.height * 0.93)
+      ..quadraticBezierTo(size.width * 0.30, size.height * 0.86,
+          size.width * 0.62, size.height * 0.94)
       ..quadraticBezierTo(
-          size.width * 0.3, size.height * 1.02, 0, size.height * 0.98)
+          size.width * 0.30, size.height * 1.03, 0, size.height * 0.98)
       ..close();
-    canvas.drawPath(pathBottom, paintBottom);
+
+    canvas.drawPath(bottom, p3);
   }
 
   @override
-  bool shouldRepaint(covariant _SoftLeavesPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _SoftShapesPainter oldDelegate) => false;
 }
 
 class _PaperPalette {
   final BuildContext context;
-
   _PaperPalette._(this.context);
 
   static _PaperPalette of(BuildContext context) => _PaperPalette._(context);
 
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
 
-  Color get paper =>
-      isDark ? const Color(0xFF3C342B) : const Color(0xFFF1E3CC);
-  Color get edge =>
-      isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
-  Color get ink =>
-      isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
+  Color get paper => isDark ? const Color(0xFF3A3229) : const Color(0xFFF1E3CC);
+  Color get edge => isDark ? const Color(0xFF5A4C3E) : const Color(0xFFCBB38D);
+
+  Color get ink => isDark ? const Color(0xFFF0E6D6) : const Color(0xFF2F2A25);
   Color get inkMuted =>
       isDark ? const Color(0xFFD8CCBA) : const Color(0xFF5B5249);
 
-  Color get ribbon =>
-      isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
+  Color get ribbon => isDark ? const Color(0xFF9A4A4A) : const Color(0xFFB35B4F);
   Color get onRibbon => Colors.white;
 
   List<Color> get backgroundGradient => isDark
-      ? [
-    const Color(0xFF2F2821),
-    const Color(0xFF3A3027),
-    const Color(0xFF2C261F),
+      ? const [
+    Color(0xFF2F2821),
+    Color(0xFF3A3027),
+    Color(0xFF2C261F),
   ]
-      : [
-    const Color(0xFFF6ECD7),
-    const Color(0xFFF0E1C8),
-    const Color(0xFFE8D6B8),
-  ];
-
-  List<Color> get appBarGradient => isDark
-      ? [
-    const Color(0xFF3B3229),
-    const Color(0xFF362E25),
-  ]
-      : [
-    const Color(0xFFF7EBD5),
-    const Color(0xFFF0E1C8),
+      : const [
+    Color(0xFFF6ECD7),
+    Color(0xFFF0E1C8),
+    Color(0xFFE8D6B8),
   ];
 }

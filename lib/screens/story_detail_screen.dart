@@ -3,11 +3,18 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+
 import 'package:apphistorias/models/story.dart';
 import 'package:apphistorias/models/race.dart';
 import 'package:apphistorias/models/character.dart';
+import 'package:apphistorias/models/location.dart';
+import 'package:apphistorias/models/place.dart';
+
 import 'package:apphistorias/screens/race_form.dart';
 import 'package:apphistorias/screens/character_form.dart';
+import 'package:apphistorias/screens/location_form.dart';
+import 'package:apphistorias/screens/place_form.dart';
+
 import 'package:apphistorias/screens/chapter_editor_screen.dart';
 import 'package:apphistorias/screens/pdf_preview_screen.dart';
 import 'package:apphistorias/services/local_storage_service.dart';
@@ -176,10 +183,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   maxScale: 4.0,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image(
-                      image: provider!,
-                      fit: BoxFit.contain,
-                    ),
+                    child: Image(image: provider!, fit: BoxFit.contain),
                   ),
                 ),
               ),
@@ -193,6 +197,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   Race? _raceById(String? id) {
     try {
       return widget.story.races.firstWhere((r) => r.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Location? _locationById(String? id) {
+    try {
+      return widget.story.locations.firstWhere((l) => l.id == id);
     } catch (_) {
       return null;
     }
@@ -216,29 +228,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     await _actualizaImagen(file.path);
   }
 
+  // ===== Razas =====
+
   String _slugify(String s) {
     var out = s.toLowerCase();
     const repl = {
-      'á': 'a',
-      'à': 'a',
-      'ä': 'a',
-      'â': 'a',
-      'é': 'e',
-      'è': 'e',
-      'ë': 'e',
-      'ê': 'e',
-      'í': 'i',
-      'ì': 'i',
-      'ï': 'i',
-      'î': 'i',
-      'ó': 'o',
-      'ò': 'o',
-      'ö': 'o',
-      'ô': 'o',
-      'ú': 'u',
-      'ù': 'u',
-      'ü': 'u',
-      'û': 'u',
+      'á': 'a','à': 'a','ä': 'a','â': 'a',
+      'é': 'e','è': 'e','ë': 'e','ê': 'e',
+      'í': 'i','ì': 'i','ï': 'i','î': 'i',
+      'ó': 'o','ò': 'o','ö': 'o','ô': 'o',
+      'ú': 'u','ù': 'u','ü': 'u','û': 'u',
       'ñ': 'n',
     };
     out = out.split('').map((c) => repl[c] ?? c).join();
@@ -311,9 +310,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           });
 
           for (final def in cleaned) {
-            if (!newAttrs.containsKey(def.key)) {
-              newAttrs[def.key] = null;
-            }
+            newAttrs.putIfAbsent(def.key, () => null);
           }
 
           ch.attributes = newAttrs;
@@ -328,7 +325,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       );
     }
   }
-
 
   Future<void> _eliminarRaza(Race race) async {
     final ok = await showDialog<bool>(
@@ -362,6 +358,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       );
     }
   }
+
+  // ===== Personajes =====
 
   Future<void> _crearPersonaje(Race race) async {
     final result = await Navigator.push<Character>(
@@ -421,7 +419,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     }
   }
 
-
   Future<void> _eliminarPersonaje(Race race, Character ch) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -447,6 +444,169 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Personaje "${ch.name}" eliminado')),
+      );
+    }
+  }
+
+  // ===== Ubicaciones (sin atributos) =====
+
+  Future<void> _crearUbicacion() async {
+    final newLoc = await Navigator.push<Location>(
+      context,
+      MaterialPageRoute(builder: (_) => const LocationForm()),
+    );
+
+    if (newLoc is Location) {
+      newLoc.imagePath = await _persistAnyImage(newLoc.imagePath);
+      setState(() => widget.story.locations.add(newLoc));
+      await _persistAll();
+    }
+  }
+
+  Future<void> _editarUbicacion(Location loc) async {
+    final edited = await Navigator.of(context).push<Location>(
+      TransparentPageRoute(builder: (_) => LocationForm(initialLocation: loc)),
+    );
+
+    if (edited is Location) {
+      edited.imagePath = await _persistAnyImage(edited.imagePath);
+
+      setState(() {
+        loc.name = edited.name;
+        loc.description = edited.description;
+        loc.imagePath = edited.imagePath;
+        // No hay fields/atributos que sincronizar
+      });
+
+      await _persistAll();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ubicación actualizada')),
+      );
+    }
+  }
+
+  Future<void> _eliminarUbicacion(Location loc) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar ubicación'),
+        content: Text(
+          loc.places.isEmpty
+              ? '¿Seguro que quieres eliminar la ubicación "${loc.name}"?'
+              : 'La ubicación "${loc.name}" tiene ${loc.places.length} lugar(es). Se eliminarán también.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      setState(() => widget.story.locations.removeWhere((l) => l.id == loc.id));
+      await _persistAll();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ubicación "${loc.name}" eliminada')),
+      );
+    }
+  }
+
+  // ===== Lugares (sin atributos) =====
+
+  Future<void> _crearLugar(Location loc) async {
+    final result = await Navigator.push<Place>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlaceForm(
+          locations: widget.story.locations,
+          initialLocation: loc,
+        ),
+      ),
+    );
+
+    if (result is Place) {
+      result.imagePath = await _persistAnyImage(result.imagePath);
+      setState(() {
+        final target = _locationById(result.locationId) ?? loc;
+        target.places.add(result);
+      });
+      await _persistAll();
+    }
+  }
+
+  Future<void> _editarLugar(Location currentLoc, Place p) async {
+    final edited = await Navigator.of(context).push<Place>(
+      TransparentPageRoute(
+        builder: (_) => PlaceForm(
+          locations: widget.story.locations,
+          initialLocation: currentLoc,
+          initialPlace: p,
+        ),
+      ),
+    );
+
+    if (edited is Place) {
+      edited.imagePath = await _persistAnyImage(edited.imagePath);
+
+      setState(() {
+        final oldLoc = _locationById(p.locationId) ?? currentLoc;
+        final newLoc = _locationById(edited.locationId) ?? oldLoc;
+
+        oldLoc.places.removeWhere((x) => x.id == p.id);
+
+        final idx = newLoc.places.indexWhere((x) => x.id == p.id);
+        if (idx >= 0) {
+          newLoc.places[idx] = edited;
+        } else {
+          newLoc.places.add(edited);
+        }
+      });
+
+      await _persistAll();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lugar actualizado')),
+      );
+    }
+  }
+
+  Future<void> _eliminarLugar(Location loc, Place p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar lugar'),
+        content: Text('¿Seguro que quieres eliminar "${p.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok == true) {
+      setState(() => loc.places.removeWhere((x) => x.id == p.id));
+      await _persistAll();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lugar "${p.name}" eliminado')),
       );
     }
   }
@@ -478,14 +638,25 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       buildAnyImage: _buildAnyImage,
       onPreviewImage: _showImagePreview,
       onPickStoryImage: _pickStoryImage,
+
+      onOpenChapters: _openChapters,
+      onOpenPdf: _openPdf,
+
+      // Razas/Personajes
       onCreateRace: _crearRaza,
       onEditRace: _editarRaza,
       onDeleteRace: _eliminarRaza,
       onCreateCharacter: _crearPersonaje,
       onEditCharacter: _editarPersonaje,
       onDeleteCharacter: _eliminarPersonaje,
-      onOpenChapters: _openChapters,
-      onOpenPdf: _openPdf,
+
+      // Ubicaciones/Lugares
+      onCreateLocation: _crearUbicacion,
+      onEditLocation: _editarUbicacion,
+      onDeleteLocation: _eliminarUbicacion,
+      onCreatePlace: _crearLugar,
+      onEditPlace: _editarLugar,
+      onDeletePlace: _eliminarLugar,
     );
   }
 }
